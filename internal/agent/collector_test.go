@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/jonco/agent-dashboard/internal/tmux"
@@ -91,12 +92,66 @@ func TestIsAgentCommand(t *testing.T) {
 		{"1.2.3.4", false},
 		{"v1.2.3", false},
 		{"", false},
+		// "node" with PID 0 → can't read /proc/0/cmdline → false
+		{"node", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.cmd, func(t *testing.T) {
-			if got := isAgentCommand(tt.cmd); got != tt.want {
-				t.Errorf("isAgentCommand(%q) = %v, want %v", tt.cmd, got, tt.want)
+			// PID 0 ensures wrapper detection falls back gracefully (no /proc read).
+			if got := isAgentCommand(tt.cmd, 0); got != tt.want {
+				t.Errorf("isAgentCommand(%q, 0) = %v, want %v", tt.cmd, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDetectAgentInCmdline(t *testing.T) {
+	tests := []struct {
+		name string
+		args []byte
+		want string
+	}{
+		{
+			name: "node running codex",
+			args: []byte("node\x00/home/user/.local/bin/codex\x00"),
+			want: "codex",
+		},
+		{
+			name: "node running claude",
+			args: []byte("/usr/bin/node\x00/opt/claude/bin/claude\x00--team-name\x00my-team\x00"),
+			want: "claude",
+		},
+		{
+			name: "node running something else",
+			args: []byte("node\x00/home/user/app/server.js\x00"),
+			want: "",
+		},
+		{
+			name: "empty cmdline",
+			args: []byte{},
+			want: "",
+		},
+		{
+			name: "codex nested in path",
+			args: []byte("node\x00/home/user/.local/share/mise/installs/node/24.11.1/bin/codex\x00"),
+			want: "codex",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := splitCmdline(tt.args)
+			got := ""
+			for _, arg := range args {
+				base := filepath.Base(arg)
+				if agentBinaries[base] {
+					got = base
+					break
+				}
+			}
+			if got != tt.want {
+				t.Errorf("detectAgentInCmdline = %q, want %q", got, tt.want)
 			}
 		})
 	}

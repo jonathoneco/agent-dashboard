@@ -17,13 +17,52 @@ import (
 // semverRe matches version strings like "1.2.3" (team subprocesses).
 var semverRe = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 
+// agentBinaries are command names that directly indicate an agent process.
+var agentBinaries = map[string]bool{
+	"claude": true,
+	"codex":  true,
+}
+
+// wrapperCommands are interpreters that may host an agent binary (e.g. node
+// running codex). When a pane runs one of these, we inspect /proc/<pid>/cmdline
+// to check if the actual script is an agent binary.
+var wrapperCommands = map[string]bool{
+	"node":   true,
+	"python": true,
+}
+
 // isAgentCommand returns true if the pane command indicates an agent process.
-func isAgentCommand(cmd string) bool {
-	switch cmd {
-	case "claude", "codex":
+// For wrapper commands like "node", it inspects /proc/<pid>/cmdline to check
+// if the process is running an agent binary (e.g. node .../bin/codex).
+func isAgentCommand(cmd string, pid int) bool {
+	if agentBinaries[cmd] {
 		return true
 	}
-	return semverRe.MatchString(cmd)
+	if semverRe.MatchString(cmd) {
+		return true
+	}
+	if wrapperCommands[cmd] {
+		return detectAgentInCmdline(pid) != ""
+	}
+	return false
+}
+
+// detectAgentInCmdline reads /proc/<pid>/cmdline and returns the agent binary
+// name if found (e.g. "codex", "claude"), or "" if not an agent process.
+func detectAgentInCmdline(pid int) string {
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+	if err != nil {
+		return ""
+	}
+	args := splitCmdline(data)
+	for _, arg := range args {
+		// Check the basename of each arg for known agent binaries.
+		base := filepath.Base(arg)
+		if agentBinaries[base] {
+			return base
+		}
+	}
+	return ""
 }
 
 // Collect discovers all agent panes via tmux and returns them grouped by session.
@@ -37,22 +76,31 @@ func Collect(statusLines int) ([]SessionGroup, error) {
 	grouped := make(map[string][]Agent)
 
 	for _, p := range panes {
-		if !isAgentCommand(p.Command) {
+		if !isAgentCommand(p.Command, p.PID) {
 			continue
 		}
 
 		teamName, agentName := readCmdlineArgs(p.PID)
 
+		// Resolve the actual agent command for wrapper processes
+		// (e.g. "node" running codex → command becomes "codex").
+		cmd := p.Command
+		if wrapperCommands[cmd] {
+			if detected := detectAgentInCmdline(p.PID); detected != "" {
+				cmd = detected
+			}
+		}
+
 		name := agentName
 		if name == "" {
-			name = p.Command
+			name = cmd
 		}
 
 		a := Agent{
 			Name:       name,
 			Session:    p.Session,
 			PaneTarget: p.Target(),
-			Command:    p.Command,
+			Command:    cmd,
 			Status:     tmux.ParseStatus(p.Title),
 			CWD:        p.CWD,
 			PID:        p.PID,
@@ -168,8 +216,7 @@ func CaptureOutput(target string, lines int) (string, error) {
 }
 
 func isGenericName(name string) bool {
-	switch name {
-	case "claude", "codex":
+	if agentBinaries[name] {
 		return true
 	}
 	return semverRe.MatchString(name)
