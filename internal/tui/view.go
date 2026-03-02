@@ -49,6 +49,7 @@ func (m model) renderList(width int) string {
 		b.WriteString("\n  No agents detected.\n")
 	}
 
+	agentIdx := 0
 	for i, item := range m.items {
 		if item.isHeader {
 			b.WriteString(headerStyle.Width(width).Render("▸ " + item.group))
@@ -58,14 +59,31 @@ func (m model) renderList(width int) string {
 
 		a := item.agent
 		status := statusIcon(a.Status)
-		name := a.Name
+		name := a.DisplayName
+		if name == "" {
+			name = a.Name
+		}
 		if name == "" {
 			name = a.Command
 		}
 
-		row := fmt.Sprintf("%s %s", status, name)
+		// Number prefix for jump keys (1-9, 0 for 10th).
+		numPrefix := "  "
+		if agentIdx < 10 {
+			n := agentIdx + 1
+			if n == 10 {
+				n = 0
+			}
+			numPrefix = fmt.Sprintf("%d ", n)
+		}
+		agentIdx++
+
+		row := fmt.Sprintf("%s%s %s", numPrefix, status, name)
 		if a.TeamName != "" {
 			row += fmt.Sprintf(" [%s]", a.TeamName)
+		}
+		if a.StatusDetail != "" {
+			row += " " + dimStyle.Render(a.StatusDetail)
 		}
 
 		if i == m.cursor {
@@ -82,7 +100,7 @@ func (m model) renderList(width int) string {
 		b.WriteString("\n")
 	}
 
-	help := helpStyle.Render(" j/k:nav  enter:jump  /:filter  r:refresh  q:quit")
+	help := helpStyle.Render(" j/k:nav  1-0:jump  enter:switch  /:filter  r:refresh  q:quit")
 	b.WriteString(help)
 
 	return b.String()
@@ -109,10 +127,18 @@ func (m model) renderDetail() string {
 	}
 
 	var b strings.Builder
-	b.WriteString(detailTitleStyle.Render(a.Name))
+	title := a.DisplayName
+	if title == "" {
+		title = a.Name
+	}
+	b.WriteString(detailTitleStyle.Render(title))
 	b.WriteString("\n")
 	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Target:"), a.PaneTarget))
-	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Status:"), string(a.Status)))
+	statusStr := string(a.Status)
+	if a.StatusDetail != "" {
+		statusStr += " — " + a.StatusDetail
+	}
+	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Status:"), statusStr))
 	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("CWD:"), a.CWD))
 	if a.TeamName != "" {
 		b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Team:"), a.TeamName))
@@ -165,10 +191,16 @@ func renderTodo(t agent.Todo) string {
 
 func statusIcon(s tmux.AgentStatus) string {
 	switch s {
-	case tmux.StatusActive:
+	case tmux.StatusActive, tmux.StatusWorking:
 		return statusActiveStyle.Render("●")
 	case tmux.StatusIdle:
 		return statusIdleStyle.Render("◌")
+	case tmux.StatusWaiting:
+		return statusWaitingStyle.Render("◉")
+	case tmux.StatusPlanMode:
+		return statusPlanStyle.Render("◈")
+	case tmux.StatusStandby:
+		return statusStandbyStyle.Render("◇")
 	default:
 		return statusUnknownStyle.Render("○")
 	}

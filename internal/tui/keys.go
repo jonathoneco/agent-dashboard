@@ -10,6 +10,7 @@ type keyMap struct {
 	Escape  key.Binding
 	Refresh key.Binding
 	Quit    key.Binding
+	Jump    key.Binding
 }
 
 var keys = keyMap{
@@ -40,5 +41,9 @@ var keys = keyMap{
 	Quit: key.NewBinding(
 		key.WithKeys("q", "ctrl+c"),
 		key.WithHelp("q", "quit"),
+	),
+	Jump: key.NewBinding(
+		key.WithKeys("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
+		key.WithHelp("1-0", "jump to agent"),
 	),
 }

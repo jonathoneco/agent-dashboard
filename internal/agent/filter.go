@@ -35,6 +35,7 @@ func FilterAgents(groups []SessionGroup, query string) []SessionGroup {
 // the lowercase query string.
 func agentMatches(a Agent, q string) bool {
 	return strings.Contains(strings.ToLower(a.Name), q) ||
+		strings.Contains(strings.ToLower(a.DisplayName), q) ||
 		strings.Contains(strings.ToLower(a.Session), q) ||
 		strings.Contains(strings.ToLower(a.CWD), q) ||
 		strings.Contains(strings.ToLower(a.TeamName), q)

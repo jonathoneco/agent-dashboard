@@ -3,7 +3,6 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 )
@@ -16,13 +15,9 @@ type Todo struct {
 	ActiveForm string `json:"activeForm"` // present tense shown during in_progress
 }
 
-// TodoFile represents the JSON structure of a ~/.claude/todos/*.json file.
-type TodoFile struct {
-	Todos []Todo `json:"todos"`
-}
-
 // LoadTodos reads all ~/.claude/todos/*.json files and returns a combined
 // slice of todos. Returns nil with no error if the directory is missing.
+// Each file contains a raw JSON array of Todo objects.
 func LoadTodos() ([]Todo, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -42,17 +37,15 @@ func LoadTodos() ([]Todo, error) {
 	for _, path := range matches {
 		data, err := os.ReadFile(path)
 		if err != nil {
-			slog.Warn("skipping unreadable todo file", "path", path, "err", err)
 			continue
 		}
 
-		var tf TodoFile
-		if err := json.Unmarshal(data, &tf); err != nil {
-			slog.Warn("skipping malformed todo file", "path", path, "err", err)
+		var todos []Todo
+		if err := json.Unmarshal(data, &todos); err != nil {
 			continue
 		}
 
-		all = append(all, tf.Todos...)
+		all = append(all, todos...)
 	}
 
 	return all, nil

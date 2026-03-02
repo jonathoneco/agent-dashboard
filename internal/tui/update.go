@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"strconv"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -66,6 +68,7 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Enter):
 		if a := m.selectedAgent(); a != nil {
 			_ = tmux.SwitchClient(a.PaneTarget)
+			return m, tea.Quit
 		}
 		return m, nil
 	case key.Matches(msg, keys.Filter):
@@ -78,6 +81,39 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, collectCmd()
 		}
 		return m, nil
+	case key.Matches(msg, keys.Jump):
+		return m.handleJump(msg)
+	}
+	return m, nil
+}
+
+func (m model) handleJump(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	digit, err := strconv.Atoi(msg.String())
+	if err != nil {
+		return m, nil
+	}
+	// 1-9 map to indices 0-8, 0 maps to index 9.
+	idx := digit - 1
+	if digit == 0 {
+		idx = 9
+	}
+
+	// Find the nth agent (skipping headers).
+	count := 0
+	for i, item := range m.items {
+		if item.isHeader {
+			continue
+		}
+		if count == idx {
+			m.cursor = i
+			m.saveCursorKey()
+			if a := m.selectedAgent(); a != nil {
+				_ = tmux.SwitchClient(a.PaneTarget)
+				return m, tea.Quit
+			}
+			return m, nil
+		}
+		count++
 	}
 	return m, nil
 }

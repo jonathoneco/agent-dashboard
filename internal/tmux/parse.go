@@ -10,9 +10,13 @@ import (
 type AgentStatus string
 
 const (
-	StatusIdle    AgentStatus = "idle"
-	StatusActive  AgentStatus = "active"
-	StatusUnknown AgentStatus = "unknown"
+	StatusIdle     AgentStatus = "idle"
+	StatusActive   AgentStatus = "active"
+	StatusUnknown  AgentStatus = "unknown"
+	StatusWaiting  AgentStatus = "waiting"
+	StatusWorking  AgentStatus = "working"
+	StatusPlanMode AgentStatus = "plan_mode"
+	StatusStandby  AgentStatus = "standby"
 )
 
 // RawPane holds the fields parsed from a single tmux list-panes output line.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -81,7 +82,42 @@ func Collect() ([]SessionGroup, error) {
 		EnrichWithTeams(groups, teams)
 	}
 
+	enrichAgents(groups)
+
 	return groups, nil
+}
+
+// enrichAgents captures pane output and computes display name and richer
+// status for each agent.
+func enrichAgents(groups []SessionGroup) {
+	for i := range groups {
+		for j := range groups[i].Agents {
+			a := &groups[i].Agents[j]
+			a.DisplayName = computeDisplayName(a)
+
+			output, err := tmux.CapturePaneOutput(a.PaneTarget, 5)
+			if err != nil {
+				slog.Debug("capture for status enrichment", "target", a.PaneTarget, "error", err)
+				continue
+			}
+			a.Status, a.StatusDetail = ParseOutputStatus(output, a.Status)
+		}
+	}
+}
+
+// computeDisplayName returns a human-friendly name for the agent.
+// Priority: meaningful --agent-name > basename of CWD > raw command.
+func computeDisplayName(a *Agent) string {
+	if a.Name != "" && !isGenericName(a.Name) {
+		return a.Name
+	}
+	if a.CWD != "" {
+		base := filepath.Base(a.CWD)
+		if base != "." && base != "/" {
+			return base
+		}
+	}
+	return a.Command
 }
 
 // readCmdlineArgs reads /proc/<pid>/cmdline and extracts --team-name and
@@ -114,6 +150,14 @@ func parseCmdlineArgs(data []byte) (teamName, agentName string) {
 // CaptureOutput captures the last N lines of a pane's output.
 func CaptureOutput(target string, lines int) (string, error) {
 	return tmux.CapturePaneOutput(target, lines)
+}
+
+func isGenericName(name string) bool {
+	switch name {
+	case "claude", "codex":
+		return true
+	}
+	return semverRe.MatchString(name)
 }
 
 // splitCmdline splits null-byte-separated /proc/pid/cmdline data into

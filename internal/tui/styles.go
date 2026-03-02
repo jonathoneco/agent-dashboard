@@ -38,6 +38,18 @@ var (
 	filterStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("3"))
 
+	statusPlanStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("5"))
+
+	statusWaitingStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("6"))
+
+	statusStandbyStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("3"))
+
+	dimStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("8"))
+
 	helpStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("8"))
 )
