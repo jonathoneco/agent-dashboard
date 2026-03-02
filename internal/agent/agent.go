@@ -13,8 +13,10 @@ type Agent struct {
 	StatusDetail string           // human-readable status description (e.g. "Running Edit...")
 	CWD          string
 	PID          int
-	TeamName     string // from --team-name cmdline arg
-	AgentRole    string // from team config enrichment (filled later)
+	TeamName     string  // from --team-name cmdline arg
+	AgentRole    string  // from team config enrichment (filled later)
+	CPU          float64 // aggregate CPU% for process subtree
+	Memory       float64 // aggregate memory% for process subtree
 }
 
 // SessionGroup holds all agents discovered in a single tmux session.

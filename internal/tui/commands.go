@@ -7,8 +7,6 @@ import (
 	"github.com/jonco/agent-dashboard/internal/agent"
 )
 
-const pollInterval = 2 * time.Second
-
 type tickMsg struct{}
 
 type agentsMsg struct {
@@ -21,15 +19,15 @@ type captureMsg struct {
 	err    error
 }
 
-func tickCmd() tea.Cmd {
-	return tea.Tick(pollInterval, func(time.Time) tea.Msg {
+func tickCmd(interval time.Duration) tea.Cmd {
+	return tea.Tick(interval, func(time.Time) tea.Msg {
 		return tickMsg{}
 	})
 }
 
-func collectCmd() tea.Cmd {
+func collectCmd(statusLines int) tea.Cmd {
 	return func() tea.Msg {
-		groups, err := agent.Collect()
+		groups, err := agent.Collect(statusLines)
 		return agentsMsg{groups: groups, err: err}
 	}
 }

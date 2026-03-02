@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jonco/agent-dashboard/internal/monitor"
 	"github.com/jonco/agent-dashboard/internal/tmux"
 )
 
@@ -26,7 +27,8 @@ func isAgentCommand(cmd string) bool {
 }
 
 // Collect discovers all agent panes via tmux and returns them grouped by session.
-func Collect() ([]SessionGroup, error) {
+// statusLines controls how many pane output lines to capture for status inference.
+func Collect(statusLines int) ([]SessionGroup, error) {
 	panes, err := tmux.ListPanes()
 	if err != nil {
 		return nil, fmt.Errorf("collect agents: %w", err)
@@ -82,25 +84,35 @@ func Collect() ([]SessionGroup, error) {
 		EnrichWithTeams(groups, teams)
 	}
 
-	enrichAgents(groups)
+	// Fetch process table once for resource monitoring.
+	procTable, procErr := monitor.GetProcessTable()
+	if procErr != nil {
+		slog.Debug("process table unavailable", "error", procErr)
+	}
+
+	enrichAgents(groups, statusLines, procTable)
 
 	return groups, nil
 }
 
-// enrichAgents captures pane output and computes display name and richer
-// status for each agent.
-func enrichAgents(groups []SessionGroup) {
+// enrichAgents captures pane output and computes display name, richer status,
+// and resource usage for each agent.
+func enrichAgents(groups []SessionGroup, statusLines int, procTable map[int]monitor.ProcessInfo) {
 	for i := range groups {
 		for j := range groups[i].Agents {
 			a := &groups[i].Agents[j]
 			a.DisplayName = computeDisplayName(a)
 
-			output, err := tmux.CapturePaneOutput(a.PaneTarget, 5)
+			output, err := tmux.CapturePaneOutput(a.PaneTarget, statusLines)
 			if err != nil {
 				slog.Debug("capture for status enrichment", "target", a.PaneTarget, "error", err)
 				continue
 			}
 			a.Status, a.StatusDetail = ParseOutputStatus(output, a.Status)
+
+			if procTable != nil {
+				a.CPU, a.Memory = monitor.AggregateResources(a.PID, procTable)
+			}
 		}
 	}
 }

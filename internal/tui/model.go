@@ -5,6 +5,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jonco/agent-dashboard/internal/agent"
+	"github.com/jonco/agent-dashboard/internal/config"
 )
 
 type mode int
@@ -22,6 +23,7 @@ type listItem struct {
 }
 
 type model struct {
+	cfg        *config.Config
 	groups     []agent.SessionGroup
 	items      []listItem // flat list built from groups
 	cursor     int        // index into items
@@ -37,7 +39,7 @@ type model struct {
 	err        error
 }
 
-func New() model {
+func New(cfg *config.Config) model {
 	ti := textinput.New()
 	ti.Prompt = "/ "
 	ti.CharLimit = 64
@@ -45,11 +47,12 @@ func New() model {
 	vp := viewport.New(0, 0)
 
 	return model{
+		cfg:    cfg,
 		filter: ti,
 		detail: vp,
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(collectCmd(), tickCmd())
+	return tea.Batch(collectCmd(m.cfg.StatusLines), tickCmd(m.cfg.PollInterval))
 }

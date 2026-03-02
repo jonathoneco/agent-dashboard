@@ -22,10 +22,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tickMsg:
 		if m.collecting {
-			return m, tickCmd()
+			return m, tickCmd(m.cfg.PollInterval)
 		}
 		m.collecting = true
-		return m, tea.Batch(collectCmd(), tickCmd())
+		return m, tea.Batch(collectCmd(m.cfg.StatusLines), tickCmd(m.cfg.PollInterval))
 
 	case agentsMsg:
 		m.collecting = false
@@ -78,7 +78,7 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Refresh):
 		if !m.collecting {
 			m.collecting = true
-			return m, collectCmd()
+			return m, collectCmd(m.cfg.StatusLines)
 		}
 		return m, nil
 	case key.Matches(msg, keys.Jump):
@@ -235,7 +235,7 @@ func (m model) selectedAgent() *agent.Agent {
 
 func (m model) captureSelected() tea.Cmd {
 	if a := m.selectedAgent(); a != nil {
-		return captureCmd(a.PaneTarget, 20)
+		return captureCmd(a.PaneTarget, m.cfg.CaptureLines)
 	}
 	return nil
 }

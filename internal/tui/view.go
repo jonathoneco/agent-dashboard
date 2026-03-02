@@ -146,6 +146,10 @@ func (m model) renderDetail() string {
 	if a.AgentRole != "" {
 		b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Role:"), a.AgentRole))
 	}
+	if a.CPU > 0 || a.Memory > 0 {
+		b.WriteString(fmt.Sprintf("%s %.1f%%\n", detailLabelStyle.Render("CPU:"), a.CPU))
+		b.WriteString(fmt.Sprintf("%s %.1f%%\n", detailLabelStyle.Render("Mem:"), a.Memory))
+	}
 
 	b.WriteString("\n")
 	b.WriteString(detailLabelStyle.Render("Output:"))
