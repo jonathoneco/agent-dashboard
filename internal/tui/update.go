@@ -47,10 +47,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		if m.mode == modeFilter {
+		switch m.mode {
+		case modeFilter:
 			return m.updateFilter(msg)
+		case modeHelp:
+			return m.updateHelp(msg)
+		default:
+			return m.updateNormal(msg)
 		}
-		return m.updateNormal(msg)
 	}
 	return m, nil
 }
@@ -75,6 +79,9 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.mode = modeFilter
 		m.filter.Focus()
 		return m, textinput.Blink
+	case key.Matches(msg, keys.Help):
+		m.mode = modeHelp
+		return m, nil
 	case key.Matches(msg, keys.Refresh):
 		if !m.collecting {
 			m.collecting = true
@@ -114,6 +121,14 @@ func (m model) handleJump(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		count++
+	}
+	return m, nil
+}
+
+func (m model) updateHelp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, keys.Escape), key.Matches(msg, keys.Help), key.Matches(msg, keys.Quit):
+		m.mode = modeNormal
 	}
 	return m, nil
 }
@@ -180,6 +195,35 @@ func (m *model) moveCursor(delta int) {
 		m.cursor = start // couldn't find non-header, stay put
 	}
 	m.saveCursorKey()
+	m.adjustScroll()
+}
+
+// listHeight returns the number of visible rows available for the agent list.
+func (m model) listHeight() int {
+	// title + filter (optional) + help line + scroll indicators = overhead
+	overhead := 3
+	if m.mode == modeFilter {
+		overhead++
+	}
+	h := m.height - overhead
+	if h < 1 {
+		h = 1
+	}
+	return h
+}
+
+// adjustScroll ensures cursor is visible within the scroll viewport.
+func (m *model) adjustScroll() {
+	visible := m.listHeight()
+	if m.cursor < m.scrollOffset {
+		m.scrollOffset = m.cursor
+	}
+	if m.cursor >= m.scrollOffset+visible {
+		m.scrollOffset = m.cursor - visible + 1
+	}
+	if m.scrollOffset < 0 {
+		m.scrollOffset = 0
+	}
 }
 
 func (m *model) skipToNextAgent(dir int) {

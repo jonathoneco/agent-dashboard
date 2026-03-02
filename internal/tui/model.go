@@ -13,6 +13,7 @@ type mode int
 const (
 	modeNormal mode = iota
 	modeFilter
+	modeHelp
 )
 
 // listItem is a flat entry in the rendered list — either a group header or an agent.
@@ -23,20 +24,21 @@ type listItem struct {
 }
 
 type model struct {
-	cfg        *config.Config
-	groups     []agent.SessionGroup
-	items      []listItem // flat list built from groups
-	cursor     int        // index into items
-	cursorKey  string     // PaneTarget of selected agent for stability
-	width      int
-	height     int
-	mode       mode
-	filter     textinput.Model
-	filterText string
-	detail     viewport.Model
-	capture    string
-	collecting bool
-	err        error
+	cfg          *config.Config
+	groups       []agent.SessionGroup
+	items        []listItem // flat list built from groups
+	cursor       int        // index into items
+	cursorKey    string     // PaneTarget of selected agent for stability
+	width        int
+	height       int
+	mode         mode
+	filter       textinput.Model
+	filterText   string
+	detail       viewport.Model
+	capture      string
+	collecting   bool
+	scrollOffset int // first visible row in agent list
+	err          error
 }
 
 func New(cfg *config.Config) model {

@@ -14,6 +14,10 @@ func (m model) View() string {
 		return "Loading..."
 	}
 
+	if m.mode == modeHelp {
+		return m.renderHelp()
+	}
+
 	listWidth := m.width / 2
 	if listWidth < 30 {
 		listWidth = m.width
@@ -49,8 +53,40 @@ func (m model) renderList(width int) string {
 		b.WriteString("\n  No agents detected.\n")
 	}
 
+	visible := m.listHeight()
+
+	// Scroll indicator: above
+	above := m.scrollOffset
+	if above > 0 {
+		b.WriteString(dimStyle.Render(fmt.Sprintf("  ▲ %d more", above)))
+		b.WriteString("\n")
+		visible--
+	}
+
+	// Determine how many items are below the visible window.
+	end := m.scrollOffset + visible
+	if end > len(m.items) {
+		end = len(m.items)
+	}
+	below := len(m.items) - end
+
+	// Fixed widths: number(2) + space(1) + icon(1) + space(1) = 5 prefix chars
+	// Reserve space for team tag and status detail
+	nameWidth := width - 5
+	if nameWidth < 10 {
+		nameWidth = 10
+	}
+
 	agentIdx := 0
-	for i, item := range m.items {
+	// Count agents before scroll offset for correct numbering.
+	for i := 0; i < m.scrollOffset && i < len(m.items); i++ {
+		if !m.items[i].isHeader {
+			agentIdx++
+		}
+	}
+
+	for i := m.scrollOffset; i < end; i++ {
+		item := m.items[i]
 		if item.isHeader {
 			b.WriteString(headerStyle.Width(width).Render("▸ " + item.group))
 			b.WriteString("\n")
@@ -59,13 +95,7 @@ func (m model) renderList(width int) string {
 
 		a := item.agent
 		status := statusIcon(a.Status)
-		name := a.DisplayName
-		if name == "" {
-			name = a.Name
-		}
-		if name == "" {
-			name = a.Command
-		}
+		name := displayName(a)
 
 		// Number prefix for jump keys (1-9, 0 for 10th).
 		numPrefix := "  "
@@ -78,6 +108,7 @@ func (m model) renderList(width int) string {
 		}
 		agentIdx++
 
+		// Build row with flexible truncation.
 		row := fmt.Sprintf("%s%s %s", numPrefix, status, name)
 		if a.TeamName != "" {
 			row += fmt.Sprintf(" [%s]", a.TeamName)
@@ -85,6 +116,9 @@ func (m model) renderList(width int) string {
 		if a.StatusDetail != "" {
 			row += " " + dimStyle.Render(a.StatusDetail)
 		}
+
+		// Truncate to fit width.
+		row = truncate(row, width)
 
 		if i == m.cursor {
 			b.WriteString(selectedStyle.Width(width).Render(row))
@@ -94,15 +128,66 @@ func (m model) renderList(width int) string {
 		b.WriteString("\n")
 	}
 
+	// Scroll indicator: below
+	if below > 0 {
+		b.WriteString(dimStyle.Render(fmt.Sprintf("  ▼ %d more", below)))
+		b.WriteString("\n")
+	}
+
 	// fill remaining height
 	used := strings.Count(b.String(), "\n")
 	for i := used; i < m.height-1; i++ {
 		b.WriteString("\n")
 	}
 
-	help := helpStyle.Render(" j/k:nav  1-0:jump  enter:switch  /:filter  r:refresh  q:quit")
+	help := helpStyle.Render(" j/k:nav  1-0:jump  enter:switch  /:filter  ?:help  r:refresh  q:quit")
 	b.WriteString(help)
 
+	return b.String()
+}
+
+func (m model) renderHelp() string {
+	var b strings.Builder
+	b.WriteString(lipgloss.NewStyle().Bold(true).Padding(0, 1).Render("Agent Dashboard — Help"))
+	b.WriteString("\n\n")
+
+	sections := []struct {
+		title string
+		items [][2]string
+	}{
+		{"Navigation", [][2]string{
+			{"j / ↓", "Move cursor down"},
+			{"k / ↑", "Move cursor up"},
+			{"1-9, 0", "Jump to agent and switch"},
+			{"Enter", "Switch to selected agent pane"},
+		}},
+		{"Actions", [][2]string{
+			{"/", "Enter filter mode"},
+			{"Esc", "Clear filter / close help"},
+			{"r", "Force refresh"},
+			{"?", "Toggle this help"},
+			{"q", "Quit"},
+		}},
+		{"Status Icons", [][2]string{
+			{"●", "Active / working"},
+			{"◌", "Idle"},
+			{"◉", "Waiting for input"},
+			{"◈", "Plan mode"},
+			{"◇", "Standing by"},
+			{"○", "Unknown"},
+		}},
+	}
+
+	for _, s := range sections {
+		b.WriteString(detailLabelStyle.Render(s.title))
+		b.WriteString("\n")
+		for _, item := range s.items {
+			b.WriteString(fmt.Sprintf("  %-12s %s\n", item[0], item[1]))
+		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString(dimStyle.Render("Press Esc or ? to close"))
 	return b.String()
 }
 
@@ -127,11 +212,7 @@ func (m model) renderDetail() string {
 	}
 
 	var b strings.Builder
-	title := a.DisplayName
-	if title == "" {
-		title = a.Name
-	}
-	b.WriteString(detailTitleStyle.Render(title))
+	b.WriteString(detailTitleStyle.Render(displayName(a)))
 	b.WriteString("\n")
 	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Target:"), a.PaneTarget))
 	statusStr := string(a.Status)
@@ -208,4 +289,26 @@ func statusIcon(s tmux.AgentStatus) string {
 	default:
 		return statusUnknownStyle.Render("○")
 	}
+}
+
+// displayName returns the best available name for an agent.
+func displayName(a *agent.Agent) string {
+	if a.DisplayName != "" {
+		return a.DisplayName
+	}
+	if a.Name != "" {
+		return a.Name
+	}
+	return a.Command
+}
+
+// truncate cuts a string to fit within maxWidth, adding ellipsis if needed.
+func truncate(s string, maxWidth int) string {
+	if len(s) <= maxWidth {
+		return s
+	}
+	if maxWidth <= 3 {
+		return s[:maxWidth]
+	}
+	return s[:maxWidth-1] + "…"
 }

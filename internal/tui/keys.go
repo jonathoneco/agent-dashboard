@@ -9,6 +9,7 @@ type keyMap struct {
 	Filter  key.Binding
 	Escape  key.Binding
 	Refresh key.Binding
+	Help    key.Binding
 	Quit    key.Binding
 	Jump    key.Binding
 }
@@ -37,6 +38,10 @@ var keys = keyMap{
 	Refresh: key.NewBinding(
 		key.WithKeys("r"),
 		key.WithHelp("r", "refresh"),
+	),
+	Help: key.NewBinding(
+		key.WithKeys("?"),
+		key.WithHelp("?", "help"),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("q", "ctrl+c"),
