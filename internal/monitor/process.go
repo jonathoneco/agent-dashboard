@@ -5,19 +5,21 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // ProcessInfo holds resource usage for a single process.
 type ProcessInfo struct {
-	PID  int
-	PPID int
-	CPU  float64
-	Mem  float64
+	PID     int
+	PPID    int
+	CPU     float64
+	Mem     float64
+	Elapsed time.Duration // elapsed time since process start
 }
 
 // GetProcessTable runs a single ps call and returns a map of PID → ProcessInfo.
 func GetProcessTable() (map[int]ProcessInfo, error) {
-	out, err := exec.Command("ps", "-eo", "pid,ppid,%cpu,%mem").Output()
+	out, err := exec.Command("ps", "-eo", "pid,ppid,%cpu,%mem,etimes").Output()
 	if err != nil {
 		return nil, fmt.Errorf("get process table: %w", err)
 	}
@@ -31,7 +33,7 @@ func parseProcessTable(output string) (map[int]ProcessInfo, error) {
 
 	for _, line := range lines[1:] { // skip header
 		fields := strings.Fields(line)
-		if len(fields) < 4 {
+		if len(fields) < 5 {
 			continue
 		}
 		pid, err := strconv.Atoi(fields[0])
@@ -44,8 +46,15 @@ func parseProcessTable(output string) (map[int]ProcessInfo, error) {
 		}
 		cpu, _ := strconv.ParseFloat(fields[2], 64)
 		mem, _ := strconv.ParseFloat(fields[3], 64)
+		etimes, _ := strconv.Atoi(fields[4])
 
-		table[pid] = ProcessInfo{PID: pid, PPID: ppid, CPU: cpu, Mem: mem}
+		table[pid] = ProcessInfo{
+			PID:     pid,
+			PPID:    ppid,
+			CPU:     cpu,
+			Mem:     mem,
+			Elapsed: time.Duration(etimes) * time.Second,
+		}
 	}
 
 	return table, nil

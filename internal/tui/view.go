@@ -9,7 +9,7 @@ import (
 	"github.com/jonco/agent-dashboard/internal/tmux"
 )
 
-func (m model) View() string {
+func (m Model) View() string {
 	if m.width == 0 {
 		return "Loading..."
 	}
@@ -33,7 +33,7 @@ func (m model) View() string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }
 
-func (m model) renderList(width int) string {
+func (m Model) renderList(width int) string {
 	var b strings.Builder
 
 	title := lipgloss.NewStyle().Bold(true).Padding(0, 1).Render("Agent Dashboard")
@@ -140,13 +140,17 @@ func (m model) renderList(width int) string {
 		b.WriteString("\n")
 	}
 
-	help := helpStyle.Render(" j/k:nav  1-0:jump  enter:switch  /:filter  ?:help  r:refresh  q:quit")
-	b.WriteString(help)
+	if m.mode == modeConfirm && m.confirmMsg != "" {
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("3")).Render(
+			fmt.Sprintf(" %s (y/n)", m.confirmMsg)))
+	} else {
+		b.WriteString(helpStyle.Render(" j/k:nav  1-0:jump  enter:switch  /:filter  ?:help  r:refresh  q:quit"))
+	}
 
 	return b.String()
 }
 
-func (m model) renderHelp() string {
+func (m Model) renderHelp() string {
 	var b strings.Builder
 	b.WriteString(lipgloss.NewStyle().Bold(true).Padding(0, 1).Render("Agent Dashboard — Help"))
 	b.WriteString("\n\n")
@@ -191,7 +195,7 @@ func (m model) renderHelp() string {
 	return b.String()
 }
 
-func (m model) renderDetailPanel() string {
+func (m Model) renderDetailPanel() string {
 	if m.detail.Width == 0 {
 		return ""
 	}
@@ -205,7 +209,7 @@ func (m model) renderDetailPanel() string {
 		Render(m.detail.View())
 }
 
-func (m model) renderDetail() string {
+func (m Model) renderDetail() string {
 	a := m.selectedAgent()
 	if a == nil {
 		return "  No agent selected."
@@ -230,6 +234,9 @@ func (m model) renderDetail() string {
 	if a.CPU > 0 || a.Memory > 0 {
 		b.WriteString(fmt.Sprintf("%s %.1f%%\n", detailLabelStyle.Render("CPU:"), a.CPU))
 		b.WriteString(fmt.Sprintf("%s %.1f%%\n", detailLabelStyle.Render("Mem:"), a.Memory))
+	}
+	if uptime := a.FormatUptime(); uptime != "" {
+		b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Uptime:"), uptime))
 	}
 
 	b.WriteString("\n")

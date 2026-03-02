@@ -2,42 +2,57 @@ package monitor
 
 import (
 	"testing"
+	"time"
 )
 
 func TestParseProcessTable(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		wantLen int
-		checkID int
-		wantCPU float64
-		wantMem float64
+		name        string
+		input       string
+		wantLen     int
+		checkID     int
+		wantCPU     float64
+		wantMem     float64
+		wantElapsed time.Duration
 	}{
 		{
 			name: "basic",
-			input: `  PID  PPID %CPU %MEM
-  1     0  0.0  0.1
- 42     1  5.3  2.1
-100    42  1.2  0.5`,
-			wantLen: 3,
-			checkID: 42,
-			wantCPU: 5.3,
-			wantMem: 2.1,
+			input: `  PID  PPID %CPU %MEM ELAPSED
+  1     0  0.0  0.1    3600
+ 42     1  5.3  2.1     120
+100    42  1.2  0.5      45`,
+			wantLen:     3,
+			checkID:     42,
+			wantCPU:     5.3,
+			wantMem:     2.1,
+			wantElapsed: 120 * time.Second,
 		},
 		{
 			name:    "header only",
-			input:   `  PID  PPID %CPU %MEM`,
+			input:   `  PID  PPID %CPU %MEM ELAPSED`,
 			wantLen: 0,
 		},
 		{
 			name: "malformed lines skipped",
-			input: `  PID  PPID %CPU %MEM
-  abc  1  0.0  0.1
-  10   1  3.0  1.0`,
-			wantLen: 1,
-			checkID: 10,
-			wantCPU: 3.0,
-			wantMem: 1.0,
+			input: `  PID  PPID %CPU %MEM ELAPSED
+  abc  1  0.0  0.1  100
+  10   1  3.0  1.0  500`,
+			wantLen:     1,
+			checkID:     10,
+			wantCPU:     3.0,
+			wantMem:     1.0,
+			wantElapsed: 500 * time.Second,
+		},
+		{
+			name: "short lines skipped",
+			input: `  PID  PPID %CPU %MEM ELAPSED
+  10   1  3.0
+  20   1  3.0  1.0  200`,
+			wantLen:     1,
+			checkID:     20,
+			wantCPU:     3.0,
+			wantMem:     1.0,
+			wantElapsed: 200 * time.Second,
 		},
 	}
 
@@ -60,6 +75,9 @@ func TestParseProcessTable(t *testing.T) {
 				}
 				if info.Mem != tt.wantMem {
 					t.Errorf("Mem = %f, want %f", info.Mem, tt.wantMem)
+				}
+				if info.Elapsed != tt.wantElapsed {
+					t.Errorf("Elapsed = %v, want %v", info.Elapsed, tt.wantElapsed)
 				}
 			}
 		})

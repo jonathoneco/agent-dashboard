@@ -77,7 +77,7 @@ func Collect(statusLines int) ([]SessionGroup, error) {
 		return groups[i].Session < groups[j].Session
 	})
 
-	teams, err := LoadTeamConfigs()
+	teams, err := LoadTeamConfigsCached()
 	if err != nil {
 		slog.Warn("loading team configs", "error", err)
 	} else {
@@ -112,6 +112,9 @@ func enrichAgents(groups []SessionGroup, statusLines int, procTable map[int]moni
 
 			if procTable != nil {
 				a.CPU, a.Memory = monitor.AggregateResources(a.PID, procTable)
+				if info, ok := procTable[a.PID]; ok {
+					a.Uptime = info.Elapsed
+				}
 			}
 		}
 	}

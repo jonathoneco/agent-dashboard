@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jonco/agent-dashboard/internal/config"
+	"github.com/jonco/agent-dashboard/internal/tmux"
 	"github.com/jonco/agent-dashboard/internal/tui"
 )
 
@@ -21,9 +22,21 @@ func main() {
 	defer logFile.Close()
 	slog.SetDefault(slog.New(slog.NewTextHandler(logFile, nil)))
 
-	p := tea.NewProgram(tui.New(cfg), tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+	for {
+		p := tea.NewProgram(tui.New(cfg), tea.WithAltScreen())
+		m, err := p.Run()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+
+		// If we switched to a pane, drain stdin and wait for return.
+		// When the user detaches or returns, restart the dashboard.
+		final, ok := m.(tui.Model)
+		if !ok || final.SwitchedTo == "" {
+			break
+		}
+
+		tmux.DrainStdin()
 	}
 }

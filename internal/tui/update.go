@@ -10,7 +10,7 @@ import (
 	"github.com/jonco/agent-dashboard/internal/tmux"
 )
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -52,6 +52,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateFilter(msg)
 		case modeHelp:
 			return m.updateHelp(msg)
+		case modeConfirm:
+			return m.updateConfirm(msg)
 		default:
 			return m.updateNormal(msg)
 		}
@@ -59,7 +61,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Quit):
 		return m, tea.Quit
@@ -71,6 +73,7 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.captureSelected()
 	case key.Matches(msg, keys.Enter):
 		if a := m.selectedAgent(); a != nil {
+			m.SwitchedTo = a.PaneTarget
 			_ = tmux.SwitchClient(a.PaneTarget)
 			return m, tea.Quit
 		}
@@ -94,7 +97,7 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) handleJump(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) handleJump(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	digit, err := strconv.Atoi(msg.String())
 	if err != nil {
 		return m, nil
@@ -115,6 +118,7 @@ func (m model) handleJump(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cursor = i
 			m.saveCursorKey()
 			if a := m.selectedAgent(); a != nil {
+				m.SwitchedTo = a.PaneTarget
 				_ = tmux.SwitchClient(a.PaneTarget)
 				return m, tea.Quit
 			}
@@ -125,7 +129,7 @@ func (m model) handleJump(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) updateHelp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateHelp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Escape), key.Matches(msg, keys.Help), key.Matches(msg, keys.Quit):
 		m.mode = modeNormal
@@ -133,7 +137,29 @@ func (m model) updateHelp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "y", "Y":
+		m.mode = modeNormal
+		if m.confirmAction != nil {
+			return m.confirmAction(m)
+		}
+	case "n", "N", "esc":
+		m.mode = modeNormal
+		m.confirmMsg = ""
+		m.confirmAction = nil
+	}
+	return m, nil
+}
+
+// confirm enters confirmation mode, showing msg and executing action on 'y'.
+func (m *Model) confirm(msg string, action func(m Model) (Model, tea.Cmd)) {
+	m.mode = modeConfirm
+	m.confirmMsg = msg
+	m.confirmAction = action
+}
+
+func (m Model) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Escape):
 		m.mode = modeNormal
@@ -163,7 +189,7 @@ func (m model) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // rebuildItems flattens groups into the items list, applying the current filter.
-func (m *model) rebuildItems() {
+func (m *Model) rebuildItems() {
 	filtered := m.groups
 	if m.filterText != "" {
 		filtered = agent.FilterAgents(m.groups, m.filterText)
@@ -179,7 +205,7 @@ func (m *model) rebuildItems() {
 }
 
 // moveCursor moves the cursor by delta, skipping group headers.
-func (m *model) moveCursor(delta int) {
+func (m *Model) moveCursor(delta int) {
 	if len(m.items) == 0 {
 		return
 	}
@@ -199,7 +225,7 @@ func (m *model) moveCursor(delta int) {
 }
 
 // listHeight returns the number of visible rows available for the agent list.
-func (m model) listHeight() int {
+func (m Model) listHeight() int {
 	// title + filter (optional) + help line + scroll indicators = overhead
 	overhead := 3
 	if m.mode == modeFilter {
@@ -213,7 +239,7 @@ func (m model) listHeight() int {
 }
 
 // adjustScroll ensures cursor is visible within the scroll viewport.
-func (m *model) adjustScroll() {
+func (m *Model) adjustScroll() {
 	visible := m.listHeight()
 	if m.cursor < m.scrollOffset {
 		m.scrollOffset = m.cursor
@@ -226,7 +252,7 @@ func (m *model) adjustScroll() {
 	}
 }
 
-func (m *model) skipToNextAgent(dir int) {
+func (m *Model) skipToNextAgent(dir int) {
 	if dir == 0 {
 		dir = 1
 	}
@@ -236,7 +262,7 @@ func (m *model) skipToNextAgent(dir int) {
 	m.clampCursor()
 }
 
-func (m *model) clampCursor() {
+func (m *Model) clampCursor() {
 	if m.cursor < 0 {
 		m.cursor = 0
 	}
@@ -245,14 +271,14 @@ func (m *model) clampCursor() {
 	}
 }
 
-func (m *model) saveCursorKey() {
+func (m *Model) saveCursorKey() {
 	if a := m.selectedAgent(); a != nil {
 		m.cursorKey = a.PaneTarget
 	}
 }
 
 // restoreCursor tries to find the previously selected agent by PaneTarget.
-func (m *model) restoreCursor() {
+func (m *Model) restoreCursor() {
 	if m.cursorKey == "" {
 		m.skipToNextAgent(1)
 		m.saveCursorKey()
@@ -270,21 +296,21 @@ func (m *model) restoreCursor() {
 	m.saveCursorKey()
 }
 
-func (m model) selectedAgent() *agent.Agent {
+func (m Model) selectedAgent() *agent.Agent {
 	if m.cursor < 0 || m.cursor >= len(m.items) {
 		return nil
 	}
 	return m.items[m.cursor].agent
 }
 
-func (m model) captureSelected() tea.Cmd {
+func (m Model) captureSelected() tea.Cmd {
 	if a := m.selectedAgent(); a != nil {
 		return captureCmd(a.PaneTarget, m.cfg.CaptureLines)
 	}
 	return nil
 }
 
-func (m model) detailWidth() int {
+func (m Model) detailWidth() int {
 	w := m.width / 2
 	if w < 30 {
 		w = m.width
