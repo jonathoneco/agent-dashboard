@@ -78,9 +78,9 @@ func (m Model) renderList(width int) string {
 	}
 
 	agentIdx := 0
-	// Count agents before scroll offset for correct numbering.
+	// Count selectable agents before scroll offset for correct numbering.
 	for i := 0; i < m.scrollOffset && i < len(m.items); i++ {
-		if !m.items[i].isHeader {
+		if !m.items[i].isHeader && !m.items[i].isTeamMember {
 			agentIdx++
 		}
 	}
@@ -94,10 +94,36 @@ func (m Model) renderList(width int) string {
 		}
 
 		a := item.agent
+
+		// Team member row: indented tree connector, not selectable.
+		if item.isTeamMember {
+			connector := "├"
+			if item.isLastMember {
+				connector = "└"
+			}
+			status := statusIcon(a.Status)
+			name := displayName(a)
+			detail := ""
+			if a.StatusDetail != "" {
+				detail = " " + dimStyle.Render(a.StatusDetail)
+			}
+			row := fmt.Sprintf("%s %s %s%s", connector, status, name, detail)
+			row = truncate(row, width)
+			b.WriteString(teamMemberStyle.Width(width).Render(row))
+			b.WriteString("\n")
+			continue
+		}
+
 		status := statusIcon(a.Status)
 		name := displayName(a)
+		if a.AgentType == agent.AgentTypeCodex {
+			name = "[cdx] " + name
+		}
+		if a.IsTeamLead && len(a.TeamMembers) > 0 {
+			name += fmt.Sprintf(" (%d agents)", len(a.TeamMembers))
+		}
 
-		// Number prefix for jump keys (1-9, 0 for 10th).
+		// Number prefix for jump keys: 1-9, 0 for 10th, a-z for 11-36.
 		numPrefix := "  "
 		if agentIdx < 10 {
 			n := agentIdx + 1
@@ -105,12 +131,15 @@ func (m Model) renderList(width int) string {
 				n = 0
 			}
 			numPrefix = fmt.Sprintf("%d ", n)
+		} else if agentIdx < 36 {
+			ch := rune('a' + agentIdx - 10)
+			numPrefix = dimStyle.Render(string(ch)) + " "
 		}
 		agentIdx++
 
 		// Build row with flexible truncation.
 		row := fmt.Sprintf("%s%s %s", numPrefix, status, name)
-		if a.TeamName != "" {
+		if a.TeamName != "" && !a.IsTeamLead {
 			row += fmt.Sprintf(" [%s]", a.TeamName)
 		}
 		if a.StatusDetail != "" {
@@ -144,7 +173,7 @@ func (m Model) renderList(width int) string {
 		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("3")).Render(
 			fmt.Sprintf(" %s (y/n)", m.confirmMsg)))
 	} else {
-		b.WriteString(helpStyle.Render(" j/k:nav  1-0:jump  enter:switch  /:filter  ?:help  r:refresh  q:quit"))
+		b.WriteString(helpStyle.Render(" j/k:nav  gg/G:top/bottom  1-0/M-a-z:jump  enter:switch  /:filter  e:expert  ?:help  q:quit"))
 	}
 
 	return b.String()
@@ -162,12 +191,16 @@ func (m Model) renderHelp() string {
 		{"Navigation", [][2]string{
 			{"j / ↓", "Move cursor down"},
 			{"k / ↑", "Move cursor up"},
-			{"1-9, 0", "Jump to agent and switch"},
-			{"Enter", "Switch to selected agent pane"},
+			{"gg", "Jump to first agent"},
+			{"G", "Jump to last agent"},
+			{"1-9, 0", "Jump to agent 1-10 and switch"},
+			{"M-a - M-z", "Jump to agent 11-36 and switch"},
+			{"Enter", "Switch to selected agent pane (leads only)"},
 		}},
 		{"Actions", [][2]string{
 			{"/", "Enter filter mode"},
 			{"Esc", "Clear filter / close help"},
+			{"e", "Spawn Codex expert teammate"},
 			{"r", "Force refresh"},
 			{"?", "Toggle this help"},
 			{"q", "Quit"},
@@ -230,6 +263,35 @@ func (m Model) renderDetail() string {
 	}
 	if a.AgentRole != "" {
 		b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Role:"), a.AgentRole))
+	}
+	if a.IsTeamLead && len(a.TeamMembers) > 0 {
+		b.WriteString("\n")
+		b.WriteString(detailLabelStyle.Render("Team Members:"))
+		b.WriteString("\n")
+		for _, mem := range a.TeamMembers {
+			icon := statusIcon(mem.Status)
+			name := displayName(mem)
+			detail := ""
+			if mem.StatusDetail != "" {
+				detail = " — " + mem.StatusDetail
+			}
+			b.WriteString(fmt.Sprintf("  %s %s%s\n", icon, name, detail))
+		}
+	}
+	if a.ModelProvider != "" {
+		b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Model:"), a.ModelProvider))
+	}
+	if a.CLIVersion != "" {
+		b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("CLI:"), a.CLIVersion))
+	}
+	if a.GitBranch != "" {
+		b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Branch:"), a.GitBranch))
+	}
+	if a.SessionSource != "" {
+		b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Source:"), a.SessionSource))
+	}
+	if a.ParentThread != "" {
+		b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Parent:"), a.ParentThread))
 	}
 	if a.CPU > 0 || a.Memory > 0 {
 		b.WriteString(fmt.Sprintf("%s %.1f%%\n", detailLabelStyle.Render("CPU:"), a.CPU))

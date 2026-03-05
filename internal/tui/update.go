@@ -62,6 +62,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle gg chord: second g press completes the chord.
+	if m.pendingG {
+		m.pendingG = false
+		if msg.String() == "g" {
+			// gg: jump to first selectable agent.
+			m.cursor = 0
+			m.skipToNextAgent(1)
+			m.saveCursorKey()
+			m.scrollOffset = 0
+			m.adjustScroll()
+			return m, m.captureSelected()
+		}
+		// Not g — fall through to process the key normally.
+	}
+
 	switch {
 	case key.Matches(msg, keys.Quit):
 		return m, tea.Quit
@@ -71,6 +86,16 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Up):
 		m.moveCursor(-1)
 		return m, m.captureSelected()
+	case key.Matches(msg, keys.GoBottom):
+		// G: jump to last selectable agent.
+		m.cursor = len(m.items) - 1
+		m.skipToNextAgent(-1)
+		m.saveCursorKey()
+		m.adjustScroll()
+		return m, m.captureSelected()
+	case msg.String() == "g":
+		m.pendingG = true
+		return m, nil
 	case key.Matches(msg, keys.Enter):
 		if a := m.selectedAgent(); a != nil {
 			m.SwitchedTo = a.PaneTarget
@@ -91,8 +116,25 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, collectCmd(m.cfg.StatusLines)
 		}
 		return m, nil
+	case key.Matches(msg, keys.Spawn):
+		a := m.selectedAgent()
+		if a == nil || a.AgentType != agent.AgentTypeCodex {
+			return m, nil
+		}
+		_, err := agent.SpawnCodexExpert(*a)
+		if err != nil {
+			m.err = err
+			return m, nil
+		}
+		if !m.collecting {
+			m.collecting = true
+			return m, collectCmd(m.cfg.StatusLines)
+		}
+		return m, nil
 	case key.Matches(msg, keys.Jump):
 		return m.handleJump(msg)
+	case msg.Type == tea.KeyRunes && msg.Alt && len(msg.Runes) == 1 && msg.Runes[0] >= 'a' && msg.Runes[0] <= 'z':
+		return m.handleMetaJump(msg)
 	}
 	return m, nil
 }
@@ -108,10 +150,38 @@ func (m Model) handleJump(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		idx = 9
 	}
 
-	// Find the nth agent (skipping headers).
+	// Find the nth agent (skipping headers and team members).
 	count := 0
 	for i, item := range m.items {
-		if item.isHeader {
+		if item.isHeader || item.isTeamMember {
+			continue
+		}
+		if count == idx {
+			m.cursor = i
+			m.saveCursorKey()
+			if a := m.selectedAgent(); a != nil {
+				m.SwitchedTo = a.PaneTarget
+				_ = tmux.SwitchClient(a.PaneTarget)
+				return m, tea.Quit
+			}
+			return m, nil
+		}
+		count++
+	}
+	return m, nil
+}
+
+// handleMetaJump handles alt+a through alt+z for agents 11-36.
+func (m Model) handleMetaJump(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	r := msg.Runes
+	if len(r) != 1 || r[0] < 'a' || r[0] > 'z' {
+		return m, nil
+	}
+	idx := int(r[0]-'a') + 10 // alt+a → index 10, alt+b → 11, etc.
+
+	count := 0
+	for i, item := range m.items {
+		if item.isHeader || item.isTeamMember {
 			continue
 		}
 		if count == idx {
@@ -189,22 +259,50 @@ func (m Model) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // rebuildItems flattens groups into the items list, applying the current filter.
+// Team members are inserted directly after their lead with isTeamMember set.
 func (m *Model) rebuildItems() {
 	filtered := m.groups
 	if m.filterText != "" {
 		filtered = agent.FilterAgents(m.groups, m.filterText)
 	}
 
+	// Build set of agents that are team members (attached to a lead).
+	memberSet := make(map[string]bool)
+	for i := range filtered {
+		for j := range filtered[i].Agents {
+			a := &filtered[i].Agents[j]
+			if a.IsTeamLead {
+				for _, mem := range a.TeamMembers {
+					memberSet[mem.PaneTarget] = true
+				}
+			}
+		}
+	}
+
 	m.items = m.items[:0]
 	for i := range filtered {
 		m.items = append(m.items, listItem{isHeader: true, group: filtered[i].Session})
 		for j := range filtered[i].Agents {
-			m.items = append(m.items, listItem{agent: &filtered[i].Agents[j]})
+			a := &filtered[i].Agents[j]
+			if memberSet[a.PaneTarget] {
+				continue // emitted after their lead
+			}
+			m.items = append(m.items, listItem{agent: a})
+			// Emit team members right after the lead.
+			if a.IsTeamLead {
+				for k, mem := range a.TeamMembers {
+					m.items = append(m.items, listItem{
+						agent:        mem,
+						isTeamMember: true,
+						isLastMember: k == len(a.TeamMembers)-1,
+					})
+				}
+			}
 		}
 	}
 }
 
-// moveCursor moves the cursor by delta, skipping group headers.
+// moveCursor moves the cursor by delta, skipping group headers and team members.
 func (m *Model) moveCursor(delta int) {
 	if len(m.items) == 0 {
 		return
@@ -212,13 +310,13 @@ func (m *Model) moveCursor(delta int) {
 	start := m.cursor
 	m.cursor += delta
 	m.clampCursor()
-	// skip headers
-	for m.cursor >= 0 && m.cursor < len(m.items) && m.items[m.cursor].isHeader {
+	// skip headers and team members
+	for m.cursor >= 0 && m.cursor < len(m.items) && (m.items[m.cursor].isHeader || m.items[m.cursor].isTeamMember) {
 		m.cursor += delta
 	}
 	m.clampCursor()
-	if m.cursor >= 0 && m.cursor < len(m.items) && m.items[m.cursor].isHeader {
-		m.cursor = start // couldn't find non-header, stay put
+	if m.cursor >= 0 && m.cursor < len(m.items) && (m.items[m.cursor].isHeader || m.items[m.cursor].isTeamMember) {
+		m.cursor = start // couldn't find selectable item, stay put
 	}
 	m.saveCursorKey()
 	m.adjustScroll()
@@ -256,7 +354,7 @@ func (m *Model) skipToNextAgent(dir int) {
 	if dir == 0 {
 		dir = 1
 	}
-	for m.cursor >= 0 && m.cursor < len(m.items) && m.items[m.cursor].isHeader {
+	for m.cursor >= 0 && m.cursor < len(m.items) && (m.items[m.cursor].isHeader || m.items[m.cursor].isTeamMember) {
 		m.cursor += dir
 	}
 	m.clampCursor()
@@ -285,7 +383,7 @@ func (m *Model) restoreCursor() {
 		return
 	}
 	for i, item := range m.items {
-		if !item.isHeader && item.agent != nil && item.agent.PaneTarget == m.cursorKey {
+		if !item.isHeader && !item.isTeamMember && item.agent != nil && item.agent.PaneTarget == m.cursorKey {
 			m.cursor = i
 			return
 		}

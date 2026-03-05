@@ -126,3 +126,85 @@ func TestParseOutputStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestParseCodexOutputStatus(t *testing.T) {
+	tests := []struct {
+		name        string
+		output      string
+		titleStatus tmux.AgentStatus
+		wantStatus  tmux.AgentStatus
+		wantDetail  string
+	}{
+		{
+			name:        "esc to interrupt pattern",
+			output:      "• Rewriting loan graph file (1m 21s • esc to interrupt)\n",
+			titleStatus: tmux.StatusUnknown,
+			wantStatus:  tmux.StatusWorking,
+			wantDetail:  "Rewriting loan graph file",
+		},
+		{
+			name:        "short duration interrupt",
+			output:      "• Running tests (5s • esc to interrupt)\n",
+			titleStatus: tmux.StatusUnknown,
+			wantStatus:  tmux.StatusWorking,
+			wantDetail:  "Running tests",
+		},
+		{
+			name:        "empty prompt awaiting input",
+			output:      "some output\n› \n",
+			titleStatus: tmux.StatusUnknown,
+			wantStatus:  tmux.StatusWaiting,
+			wantDetail:  "Awaiting input",
+		},
+		{
+			name:        "prompt with command text",
+			output:      "› Run /review on my current changes\n",
+			titleStatus: tmux.StatusUnknown,
+			wantStatus:  tmux.StatusWorking,
+			wantDetail:  "Processing command...",
+		},
+		{
+			name:        "status bar indicates idle",
+			output:      "  gpt-5.3-codex default · 32% left · ~/src/project\n",
+			titleStatus: tmux.StatusUnknown,
+			wantStatus:  tmux.StatusIdle,
+			wantDetail:  "Idle",
+		},
+		{
+			name:        "interrupt wins over prompt",
+			output:      "› \n• Writing files (10s • esc to interrupt)\n",
+			titleStatus: tmux.StatusUnknown,
+			wantStatus:  tmux.StatusWorking,
+			wantDetail:  "Writing files",
+		},
+		{
+			name: "full codex output",
+			output: `• Rewriting loan graph file (1m 21s • esc to interrupt)
+› Run /review on my current changes
+  gpt-5.3-codex default · 32% left · ~/src/gaucho-agentic-phase-0-stream-1
+`,
+			titleStatus: tmux.StatusUnknown,
+			wantStatus:  tmux.StatusWorking,
+			wantDetail:  "Processing command...",
+		},
+		{
+			name:        "empty output fallback",
+			output:      "",
+			titleStatus: tmux.StatusUnknown,
+			wantStatus:  tmux.StatusUnknown,
+			wantDetail:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotStatus, gotDetail := ParseCodexOutputStatus(tt.output, tt.titleStatus)
+			if gotStatus != tt.wantStatus {
+				t.Errorf("status = %q, want %q", gotStatus, tt.wantStatus)
+			}
+			if gotDetail != tt.wantDetail {
+				t.Errorf("detail = %q, want %q", gotDetail, tt.wantDetail)
+			}
+		})
+	}
+}

@@ -52,4 +52,8 @@ var (
 
 	helpStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("8"))
+
+	teamMemberStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("8")).
+			PaddingLeft(5)
 )

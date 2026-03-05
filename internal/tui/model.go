@@ -17,11 +17,13 @@ const (
 	modeConfirm
 )
 
-// listItem is a flat entry in the rendered list — either a group header or an agent.
+// listItem is a flat entry in the rendered list — either a group header, an agent, or a team member.
 type listItem struct {
-	isHeader bool
-	group    string
-	agent    *agent.Agent
+	isHeader     bool
+	isTeamMember bool // cursor skips, no jump number
+	isLastMember bool // └ vs ├ rendering
+	group        string
+	agent        *agent.Agent
 }
 
 // Model is the Bubbletea model for the dashboard TUI.
@@ -43,6 +45,7 @@ type Model struct {
 	confirmMsg    string
 	confirmAction func(m Model) (Model, tea.Cmd)
 	SwitchedTo    string // set when exiting via pane switch (for reconnect loop)
+	pendingG      bool   // true after first 'g' press, waiting for second 'g'
 	err           error
 }
 

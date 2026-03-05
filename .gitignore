@@ -24,3 +24,7 @@ Thumbs.db
 # Secrets
 .env
 .env.*
+
+# Tool data
+.beads/
+.serena/

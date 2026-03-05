@@ -7,22 +7,39 @@ import (
 	"github.com/jonco/agent-dashboard/internal/tmux"
 )
 
+// AgentType distinguishes the agent runtime (Claude vs Codex).
+type AgentType string
+
+const (
+	AgentTypeClaude  AgentType = "claude"
+	AgentTypeCodex   AgentType = "codex"
+	AgentTypeUnknown AgentType = ""
+)
+
 // Agent represents a detected Claude/Codex agent running in a tmux pane.
 type Agent struct {
-	Name         string           // from --agent-name cmdline arg, or pane command
-	DisplayName  string           // human-friendly name for display
-	Session      string           // tmux session name (= project name)
-	PaneTarget   string           // e.g. "myproject:0.1" — stable identifier for cursor restore
-	Command      string           // pane_current_command
-	Status       tmux.AgentStatus // idle, active, waiting, working, plan_mode, standby, or unknown
-	StatusDetail string           // human-readable status description (e.g. "Running Edit...")
-	CWD          string
-	PID          int
-	TeamName     string        // from --team-name cmdline arg
-	AgentRole    string        // from team config enrichment (filled later)
-	CPU          float64       // aggregate CPU% for process subtree
-	Memory       float64       // aggregate memory% for process subtree
-	Uptime       time.Duration // time since process started
+	Name          string           // from --agent-name cmdline arg, or pane command
+	DisplayName   string           // human-friendly name for display
+	Session       string           // tmux session name (= project name)
+	PaneTarget    string           // e.g. "myproject:0.1" — stable identifier for cursor restore
+	Command       string           // pane_current_command
+	Status        tmux.AgentStatus // idle, active, waiting, working, plan_mode, standby, or unknown
+	StatusDetail  string           // human-readable status description (e.g. "Running Edit...")
+	CWD           string
+	PID           int
+	TeamName      string        // from --team-name cmdline arg
+	AgentRole     string        // from team config enrichment (filled later)
+	AgentType     AgentType     // claude, codex, or unknown
+	CPU           float64       // aggregate CPU% for process subtree
+	Memory        float64       // aggregate memory% for process subtree
+	Uptime        time.Duration // time since process started
+	ModelProvider string        // from Codex JSONL (e.g. "openai")
+	CLIVersion    string        // from Codex JSONL (e.g. "0.106.0")
+	GitBranch     string        // from Codex JSONL
+	SessionSource string        // Codex session source: cli or subagent
+	ParentThread  string        // Codex parent thread id for subagents
+	IsTeamLead    bool          // set by LinkTeamLeads
+	TeamMembers   []*Agent      // member pointers (only on leads)
 }
 
 // FormatUptime returns a human-readable uptime string like "2h 15m" or "3d 1h".

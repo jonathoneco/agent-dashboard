@@ -47,3 +47,34 @@ func SwitchClient(target string) error {
 	}
 	return nil
 }
+
+// NewWindowDetached creates a new detached tmux window and returns pane target.
+func NewWindowDetached(session, cwd, name string) (string, error) {
+	out, err := exec.Command(
+		"tmux", "new-window", "-d", "-P",
+		"-t", session,
+		"-c", cwd,
+		"-n", name,
+		"-F", "#{session_name}:#{window_index}.0",
+	).Output()
+	if err != nil {
+		return "", fmt.Errorf("tmux new-window -t %s: %w", session, err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// SendLiteral writes text to a pane as literal keystrokes.
+func SendLiteral(target, text string) error {
+	if err := exec.Command("tmux", "send-keys", "-t", target, "-l", text).Run(); err != nil {
+		return fmt.Errorf("tmux send-keys -l -t %s: %w", target, err)
+	}
+	return nil
+}
+
+// SendEnter sends an Enter key to the target pane.
+func SendEnter(target string) error {
+	if err := exec.Command("tmux", "send-keys", "-t", target, "Enter").Run(); err != nil {
+		return fmt.Errorf("tmux send-keys Enter -t %s: %w", target, err)
+	}
+	return nil
+}

@@ -3,15 +3,17 @@ package tui
 import "github.com/charmbracelet/bubbles/key"
 
 type keyMap struct {
-	Up      key.Binding
-	Down    key.Binding
-	Enter   key.Binding
-	Filter  key.Binding
-	Escape  key.Binding
-	Refresh key.Binding
-	Help    key.Binding
-	Quit    key.Binding
-	Jump    key.Binding
+	Up       key.Binding
+	Down     key.Binding
+	Enter    key.Binding
+	Filter   key.Binding
+	Escape   key.Binding
+	Refresh  key.Binding
+	Spawn    key.Binding
+	Help     key.Binding
+	Quit     key.Binding
+	Jump     key.Binding
+	GoBottom key.Binding
 }
 
 var keys = keyMap{
@@ -39,6 +41,10 @@ var keys = keyMap{
 		key.WithKeys("r"),
 		key.WithHelp("r", "refresh"),
 	),
+	Spawn: key.NewBinding(
+		key.WithKeys("e"),
+		key.WithHelp("e", "spawn codex expert"),
+	),
 	Help: key.NewBinding(
 		key.WithKeys("?"),
 		key.WithHelp("?", "help"),
@@ -50,5 +56,9 @@ var keys = keyMap{
 	Jump: key.NewBinding(
 		key.WithKeys("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
 		key.WithHelp("1-0", "jump to agent"),
+	),
+	GoBottom: key.NewBinding(
+		key.WithKeys("G"),
+		key.WithHelp("G", "last agent"),
 	),
 }
