@@ -4,6 +4,8 @@ A live-updating TUI for monitoring Claude Code and Codex agent instances across 
 
 ![Go](https://img.shields.io/badge/Go-1.25-blue)
 
+![Agent Dashboard screenshot](screenshot.png)
+
 ## Features
 
 - Discovers Claude Code and Codex agents running in tmux panes
