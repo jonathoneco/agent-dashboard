@@ -4,6 +4,28 @@ import (
 	"testing"
 )
 
+func TestPaneWindow(t *testing.T) {
+	tests := []struct {
+		target string
+		want   string
+	}{
+		{"myproj:0.0", "0"},
+		{"myproj:1.2", "1"},
+		{"personal-agent:3.0", "3"},
+		{"sess:10.5", "10"},
+		{"nocodon", ""},
+		{"sess:5", "5"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.target, func(t *testing.T) {
+			if got := paneWindow(tt.target); got != tt.want {
+				t.Errorf("paneWindow(%q) = %q, want %q", tt.target, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLinkTeamLeads(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -67,6 +89,58 @@ func TestLinkTeamLeads(t *testing.T) {
 			wantLeads:       map[string]bool{"myproj:0.1": true},
 			wantTeamName:    map[string]string{"myproj:0.1": "team-alpha"},
 			wantMemberCount: map[string]int{"myproj:0.1": 1},
+		},
+		{
+			name: "prefers lead in same window as members",
+			groups: []SessionGroup{{
+				Session: "personal-agent",
+				Agents: []Agent{
+					// Window 0: idle agent (should NOT become lead)
+					{PaneTarget: "personal-agent:0.0", AgentType: AgentTypeClaude, TeamName: ""},
+					// Window 1: active agent + team members
+					{PaneTarget: "personal-agent:1.0", AgentType: AgentTypeClaude, TeamName: ""},
+					{PaneTarget: "personal-agent:1.1", AgentType: AgentTypeClaude, TeamName: "team-x", Name: "manifest-advocate"},
+					{PaneTarget: "personal-agent:1.2", AgentType: AgentTypeClaude, TeamName: "team-x", Name: "filesystem-advocate"},
+					{PaneTarget: "personal-agent:1.3", AgentType: AgentTypeClaude, TeamName: "team-x", Name: "mcp-proxy-advocate"},
+				},
+			}},
+			wantLeads:       map[string]bool{"personal-agent:1.0": true},
+			wantTeamName:    map[string]string{"personal-agent:1.0": "team-x"},
+			wantMemberCount: map[string]int{"personal-agent:1.0": 3},
+		},
+		{
+			name: "falls back to first unassigned when no window match",
+			groups: []SessionGroup{{
+				Session: "myproj",
+				Agents: []Agent{
+					// Window 0: only lead candidate (no window match, but still only option)
+					{PaneTarget: "myproj:0.0", AgentType: AgentTypeClaude, TeamName: ""},
+					// Window 2: team members (no lead in window 2)
+					{PaneTarget: "myproj:2.0", AgentType: AgentTypeClaude, TeamName: "team-alpha", Name: "researcher"},
+					{PaneTarget: "myproj:2.1", AgentType: AgentTypeClaude, TeamName: "team-alpha", Name: "implementer"},
+				},
+			}},
+			wantLeads:       map[string]bool{"myproj:0.0": true},
+			wantTeamName:    map[string]string{"myproj:0.0": "team-alpha"},
+			wantMemberCount: map[string]int{"myproj:0.0": 2},
+		},
+		{
+			name: "PID tiebreak when two agents in same window as members",
+			groups: []SessionGroup{{
+				Session: "myproj",
+				Agents: []Agent{
+					// Window 1: two Claude agents + team members (swap-window scenario)
+					// Agent at PID 1000 is the real parent (started before members)
+					// Agent at PID 3000 was swapped into this window later
+					{PaneTarget: "myproj:1.0", AgentType: AgentTypeClaude, PID: 3000, TeamName: ""},
+					{PaneTarget: "myproj:1.1", AgentType: AgentTypeClaude, PID: 1000, TeamName: ""},
+					{PaneTarget: "myproj:1.2", AgentType: AgentTypeClaude, PID: 2000, TeamName: "team-alpha", Name: "researcher"},
+					{PaneTarget: "myproj:1.3", AgentType: AgentTypeClaude, PID: 2001, TeamName: "team-alpha", Name: "implementer"},
+				},
+			}},
+			wantLeads:       map[string]bool{"myproj:1.1": true},
+			wantTeamName:    map[string]string{"myproj:1.1": "team-alpha"},
+			wantMemberCount: map[string]int{"myproj:1.1": 2},
 		},
 		{
 			name: "no cross-session linking",
