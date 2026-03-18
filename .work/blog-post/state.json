@@ -1,0 +1,26 @@
+{
+  "name": "blog-post",
+  "title": "Blog post about Agent Dashboard",
+  "tier": 2,
+  "steps": [
+    {"name": "assess", "status": "completed"},
+    {"name": "plan", "status": "completed"},
+    {"name": "implement", "status": "completed"},
+    {"name": "review", "status": "completed"}
+  ],
+  "current_step": "review",
+  "assessment": {
+    "scope": 2,
+    "complexity": 2,
+    "risk": 1,
+    "total": 5,
+    "tier": 2,
+    "rationale": "Content creation task: research project history, synthesize into blog post pattern, draft and self-review. Multiple phases but bounded scope, low risk (new file, no code changes)."
+  },
+  "base_commit": "1493d66b0b171a5f489751f718d402ce6dc206e6",
+  "issue_id": "agent-dashboard-560",
+  "created_at": "2026-03-18T20:23:03Z",
+  "updated_at": "2026-03-18T21:11:11Z",
+  "reviewed_at": "2026-03-18T20:45:00Z",
+  "archived_at": "2026-03-18T21:11:11Z"
+}
