@@ -36,11 +36,11 @@ func TestParseOutputStatus(t *testing.T) {
 			wantDetail:  "Plan mode",
 		},
 		{
-			name:        "accept edits mode",
-			output:      "⏵⏵ accept edits\n",
-			titleStatus: tmux.StatusActive,
-			wantStatus:  tmux.StatusWorking,
-			wantDetail:  "Accept edits mode",
+			name:        "prompt with status bar chrome",
+			output:      "✻ Churned for 36s\n● How is Claude doing?\n1: Bad 2: Fine 3: Good\n────────────────────\n❯\n────────────────────\n⏵⏵ accept edits on (shift+tab to cycle)\n",
+			titleStatus: tmux.StatusIdle,
+			wantStatus:  tmux.StatusWaiting,
+			wantDetail:  "Awaiting input",
 		},
 		{
 			name:        "tool call Edit",
@@ -111,6 +111,20 @@ func TestParseOutputStatus(t *testing.T) {
 			titleStatus: tmux.StatusActive,
 			wantStatus:  tmux.StatusWorking,
 			wantDetail:  "Running Read...",
+		},
+		{
+			name:        "active title ignores prompt shows spinner",
+			output:      "✻ Noodling…\n────────────────────\n❯\n────────────────────\n⏵⏵ accept edits on (shift+tab to cycle)\n",
+			titleStatus: tmux.StatusActive,
+			wantStatus:  tmux.StatusWorking,
+			wantDetail:  "Noodling…",
+		},
+		{
+			name:        "active title with prompt only falls back to working",
+			output:      "some output\n────────────────────\n❯\n────────────────────\n⏵⏵ accept edits on (shift+tab to cycle)\n",
+			titleStatus: tmux.StatusActive,
+			wantStatus:  tmux.StatusWorking,
+			wantDetail:  "Working...",
 		},
 	}
 

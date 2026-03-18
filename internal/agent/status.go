@@ -38,10 +38,6 @@ func ParseOutputStatus(output string, titleStatus tmux.AgentStatus) (tmux.AgentS
 			return tmux.StatusPlanMode, "Plan mode"
 		}
 
-		if strings.Contains(line, "⏵⏵ accept edits") {
-			return tmux.StatusWorking, "Accept edits mode"
-		}
-
 		if m := toolCallRe.FindStringSubmatch(line); m != nil {
 			return tmux.StatusWorking, "Running " + m[1] + "..."
 		}
@@ -50,9 +46,12 @@ func ParseOutputStatus(output string, titleStatus tmux.AgentStatus) (tmux.AgentS
 			return tmux.StatusWorking, m[1]
 		}
 
-		// ❯ prompt at end of output means waiting for user input.
+		// ❯ prompt is always visible in Claude Code's pane (persistent
+		// input area). Only treat it as "waiting" when the title confirms
+		// idle (✳). When actively working (braille title), skip it so
+		// spinners/tool calls above it match instead.
 		trimmed := strings.TrimSpace(line)
-		if trimmed == "❯" || strings.HasSuffix(trimmed, "❯") {
+		if (trimmed == "❯" || strings.HasSuffix(trimmed, "❯")) && titleStatus == tmux.StatusIdle {
 			return tmux.StatusWaiting, "Awaiting input"
 		}
 	}
@@ -118,11 +117,31 @@ func fallbackStatus(titleStatus tmux.AgentStatus) (tmux.AgentStatus, string) {
 	}
 }
 
+// isUIChrome returns true for Claude Code TUI chrome lines that should
+// be excluded from status analysis (separators, permission mode bar).
+func isUIChrome(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return false
+	}
+	// Permission mode status bar: "⏵⏵ accept edits on (shift+tab to cycle)"
+	if strings.Contains(trimmed, "(shift+tab to cycle)") {
+		return true
+	}
+	// Separator lines composed entirely of box-drawing characters.
+	for _, r := range trimmed {
+		if r != '─' && r != '━' && r != '═' {
+			return false
+		}
+	}
+	return true
+}
+
 func lastNonEmptyLines(s string, n int) []string {
 	all := strings.Split(s, "\n")
 	var result []string
 	for i := len(all) - 1; i >= 0 && len(result) < n; i-- {
-		if strings.TrimSpace(all[i]) != "" {
+		if strings.TrimSpace(all[i]) != "" && !isUIChrome(all[i]) {
 			result = append(result, all[i])
 		}
 	}
