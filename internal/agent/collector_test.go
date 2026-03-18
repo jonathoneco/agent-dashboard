@@ -9,10 +9,11 @@ import (
 
 func TestParseCmdlineArgs(t *testing.T) {
 	tests := []struct {
-		name      string
-		data      []byte
-		wantTeam  string
-		wantAgent string
+		name            string
+		data            []byte
+		wantTeam        string
+		wantAgent       string
+		wantParentSesID string
 	}{
 		{
 			name:      "both flags present",
@@ -62,16 +63,33 @@ func TestParseCmdlineArgs(t *testing.T) {
 			wantTeam:  "ops",
 			wantAgent: "deployer",
 		},
+		{
+			name:            "parent-session-id present",
+			data:            []byte("node\x00claude\x00--team-name\x00my-team\x00--agent-name\x00researcher\x00--parent-session-id\x00abc-123\x00"),
+			wantTeam:        "my-team",
+			wantAgent:       "researcher",
+			wantParentSesID: "abc-123",
+		},
+		{
+			name:            "only parent-session-id",
+			data:            []byte("node\x00claude\x00--parent-session-id\x00sess-456\x00"),
+			wantTeam:        "",
+			wantAgent:       "",
+			wantParentSesID: "sess-456",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotTeam, gotAgent := parseCmdlineArgs(tt.data)
+			gotTeam, gotAgent, gotParentSesID := parseCmdlineArgs(tt.data)
 			if gotTeam != tt.wantTeam {
 				t.Errorf("teamName = %q, want %q", gotTeam, tt.wantTeam)
 			}
 			if gotAgent != tt.wantAgent {
 				t.Errorf("agentName = %q, want %q", gotAgent, tt.wantAgent)
+			}
+			if gotParentSesID != tt.wantParentSesID {
+				t.Errorf("parentSessionID = %q, want %q", gotParentSesID, tt.wantParentSesID)
 			}
 		})
 	}

@@ -82,7 +82,7 @@ func Collect(statusLines int) ([]SessionGroup, error) {
 			continue
 		}
 
-		teamName, agentName := readCmdlineArgs(resolveAgentPID(p.PID, p.Command))
+		teamName, agentName, parentSessionID := readCmdlineArgs(resolveAgentPID(p.PID, p.Command))
 
 		// Resolve the actual agent command for wrapper processes
 		// (e.g. "node" running codex → command becomes "codex").
@@ -111,15 +111,16 @@ func Collect(statusLines int) ([]SessionGroup, error) {
 		}
 
 		a := Agent{
-			Name:       name,
-			Session:    p.Session,
-			PaneTarget: p.Target(),
-			Command:    cmd,
-			Status:     tmux.ParseStatus(p.Title),
-			CWD:        p.CWD,
-			PID:        p.PID,
-			TeamName:   teamName,
-			AgentType:  agentType,
+			Name:            name,
+			Session:         p.Session,
+			PaneTarget:      p.Target(),
+			Command:         cmd,
+			Status:          tmux.ParseStatus(p.Title),
+			CWD:             p.CWD,
+			PID:             p.PID,
+			TeamName:        teamName,
+			ParentSessionID: parentSessionID,
+			AgentType:       agentType,
 		}
 
 		grouped[p.Session] = append(grouped[p.Session], a)
@@ -291,19 +292,19 @@ func findChildByPPID(ppid int) int {
 	return ppid
 }
 
-// readCmdlineArgs reads /proc/<pid>/cmdline and extracts --team-name and
-// --agent-name flag values. Returns empty strings on any error.
-func readCmdlineArgs(pid int) (teamName, agentName string) {
+// readCmdlineArgs reads /proc/<pid>/cmdline and extracts --team-name,
+// --agent-name, and --parent-session-id flag values. Returns empty strings on any error.
+func readCmdlineArgs(pid int) (teamName, agentName, parentSessionID string) {
 	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
 	if err != nil {
-		return "", ""
+		return "", "", ""
 	}
 	return parseCmdlineArgs(data)
 }
 
 // parseCmdlineArgs parses a null-byte-separated cmdline blob and extracts
-// --team-name and --agent-name flag values.
-func parseCmdlineArgs(data []byte) (teamName, agentName string) {
+// --team-name, --agent-name, and --parent-session-id flag values.
+func parseCmdlineArgs(data []byte) (teamName, agentName, parentSessionID string) {
 	args := splitCmdline(data)
 
 	for i := 0; i < len(args)-1; i++ {
@@ -312,10 +313,12 @@ func parseCmdlineArgs(data []byte) (teamName, agentName string) {
 			teamName = args[i+1]
 		case "--agent-name":
 			agentName = args[i+1]
+		case "--parent-session-id":
+			parentSessionID = args[i+1]
 		}
 	}
 
-	return teamName, agentName
+	return teamName, agentName, parentSessionID
 }
 
 // CaptureOutput captures the last N lines of a pane's output.
