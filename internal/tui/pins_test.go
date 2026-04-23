@@ -36,10 +36,19 @@ func TestSaveAndLoadPins(t *testing.T) {
 	}
 }
 
+func TestPinKeyDistinguishesAgentsInSameProject(t *testing.T) {
+	a := agent.Agent{Session: "proj", PaneTarget: "proj:1.1", PID: 101, CWD: "/tmp/proj", DisplayName: "worker", AgentType: agent.AgentTypeClaude}
+	b := agent.Agent{Session: "proj", PaneTarget: "proj:1.2", PID: 102, CWD: "/tmp/proj", DisplayName: "worker", AgentType: agent.AgentTypeClaude}
+
+	if pinKey(&a) == pinKey(&b) {
+		t.Fatalf("pinKey should distinguish separate agents in the same project")
+	}
+}
+
 func TestRebuildItemsPinnedOrder(t *testing.T) {
-	a := agent.Agent{Session: "alpha", PaneTarget: "alpha:1.1", CWD: "/tmp/alpha", DisplayName: "alpha", AgentType: agent.AgentTypeClaude}
-	b := agent.Agent{Session: "beta", PaneTarget: "beta:1.1", CWD: "/tmp/beta", DisplayName: "beta", AgentType: agent.AgentTypeCodex}
-	c := agent.Agent{Session: "gamma", PaneTarget: "gamma:1.1", CWD: "/tmp/gamma", DisplayName: "gamma", AgentType: agent.AgentTypePi}
+	a := agent.Agent{Session: "alpha", PaneTarget: "alpha:1.1", PID: 101, CWD: "/tmp/alpha", DisplayName: "alpha", AgentType: agent.AgentTypeClaude}
+	b := agent.Agent{Session: "beta", PaneTarget: "beta:1.1", PID: 102, CWD: "/tmp/beta", DisplayName: "beta", AgentType: agent.AgentTypeCodex}
+	c := agent.Agent{Session: "gamma", PaneTarget: "gamma:1.1", PID: 103, CWD: "/tmp/gamma", DisplayName: "gamma", AgentType: agent.AgentTypePi}
 
 	m := Model{
 		groups: []agent.SessionGroup{
@@ -51,18 +60,15 @@ func TestRebuildItemsPinnedOrder(t *testing.T) {
 	}
 
 	m.rebuildItems()
-
-	want := []string{"#Pinned", "gamma", "alpha", "#beta", "beta"}
-	got := itemLabels(m.items)
-	assertLabels(t, got, want)
+	assertLabels(t, itemLabels(m.items), []string{"#Pinned", "gamma", "alpha", "#beta", "beta"})
 }
 
 func TestReloadPinsUpdatesLongRunningModel(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	a := agent.Agent{Session: "alpha", PaneTarget: "alpha:1.1", CWD: "/tmp/alpha", DisplayName: "alpha", AgentType: agent.AgentTypeClaude}
-	b := agent.Agent{Session: "beta", PaneTarget: "beta:1.1", CWD: "/tmp/beta", DisplayName: "beta", AgentType: agent.AgentTypeCodex}
+	a := agent.Agent{Session: "alpha", PaneTarget: "alpha:1.1", PID: 101, CWD: "/tmp/alpha", DisplayName: "alpha", AgentType: agent.AgentTypeClaude}
+	b := agent.Agent{Session: "beta", PaneTarget: "beta:1.1", PID: 102, CWD: "/tmp/beta", DisplayName: "beta", AgentType: agent.AgentTypeCodex}
 
 	if err := savePins([]string{pinKey(&a)}); err != nil {
 		t.Fatalf("savePins(initial) error = %v", err)
@@ -91,9 +97,9 @@ func TestMoveSelectedPinReordersPinnedSection(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	a := agent.Agent{Session: "alpha", PaneTarget: "alpha:1.1", CWD: "/tmp/alpha", DisplayName: "alpha", AgentType: agent.AgentTypeClaude}
-	b := agent.Agent{Session: "beta", PaneTarget: "beta:1.1", CWD: "/tmp/beta", DisplayName: "beta", AgentType: agent.AgentTypeCodex}
-	c := agent.Agent{Session: "gamma", PaneTarget: "gamma:1.1", CWD: "/tmp/gamma", DisplayName: "gamma", AgentType: agent.AgentTypePi}
+	a := agent.Agent{Session: "alpha", PaneTarget: "alpha:1.1", PID: 101, CWD: "/tmp/alpha", DisplayName: "alpha", AgentType: agent.AgentTypeClaude}
+	b := agent.Agent{Session: "beta", PaneTarget: "beta:1.1", PID: 102, CWD: "/tmp/beta", DisplayName: "beta", AgentType: agent.AgentTypeCodex}
+	c := agent.Agent{Session: "gamma", PaneTarget: "gamma:1.1", PID: 103, CWD: "/tmp/gamma", DisplayName: "gamma", AgentType: agent.AgentTypePi}
 
 	m := Model{
 		groups: []agent.SessionGroup{
@@ -109,26 +115,42 @@ func TestMoveSelectedPinReordersPinnedSection(t *testing.T) {
 
 	m.moveSelectedPin(-1)
 
-	if got, want := m.pins, []string{pinKey(&b), pinKey(&a), pinKey(&c)}; len(got) != len(want) {
-		t.Fatalf("pins len = %d, want %d", len(got), len(want))
-	} else {
-		for i := range want {
-			if got[i] != want[i] {
-				t.Fatalf("pins[%d] = %q, want %q", i, got[i], want[i])
-			}
-		}
-	}
-
+	assertStringsEqual(t, m.pins, []string{pinKey(&b), pinKey(&a), pinKey(&c)})
 	assertLabels(t, itemLabels(m.items), []string{"#Pinned", "beta", "alpha", "gamma"})
 
 	loaded, err := loadPins()
 	if err != nil {
 		t.Fatalf("loadPins() error = %v", err)
 	}
-	for i := range loaded {
-		if loaded[i] != m.pins[i] {
-			t.Fatalf("persisted pins[%d] = %q, want %q", i, loaded[i], m.pins[i])
-		}
+	assertStringsEqual(t, loaded, m.pins)
+}
+
+func TestPrunePinsRemovesClosedAgentPins(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	old := agent.Agent{Session: "proj", PaneTarget: "proj:1.1", PID: 101, CWD: "/tmp/proj", DisplayName: "old", AgentType: agent.AgentTypeClaude}
+	replacement := agent.Agent{Session: "proj", PaneTarget: "proj:1.1", PID: 202, CWD: "/tmp/proj", DisplayName: "new", AgentType: agent.AgentTypeClaude}
+
+	if err := savePins([]string{pinKey(&old)}); err != nil {
+		t.Fatalf("savePins() error = %v", err)
+	}
+
+	m := Model{
+		pins:   []string{pinKey(&old)},
+		groups: []agent.SessionGroup{{Session: "proj", Agents: []agent.Agent{replacement}}},
+	}
+	m.prunePins()
+	if len(m.pins) != 0 {
+		t.Fatalf("expected stale pin to be removed, got %v", m.pins)
+	}
+
+	loaded, err := loadPins()
+	if err != nil {
+		t.Fatalf("loadPins() error = %v", err)
+	}
+	if len(loaded) != 0 {
+		t.Fatalf("expected persisted stale pins to be removed, got %v", loaded)
 	}
 }
 
@@ -153,6 +175,18 @@ func assertLabels(t *testing.T, got, want []string) {
 	for i := range got {
 		if got[i] != want[i] {
 			t.Fatalf("items[%d] = %q, want %q; full=%v", i, got[i], want[i], got)
+		}
+	}
+}
+
+func assertStringsEqual(t *testing.T, got, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("len = %d, want %d; got=%v want=%v", len(got), len(want), got, want)
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("[%d] = %q, want %q; got=%v want=%v", i, got[i], want[i], got, want)
 		}
 	}
 }

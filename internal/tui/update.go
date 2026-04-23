@@ -36,6 +36,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = nil
 		m.reloadPins()
 		m.groups = msg.groups
+		m.prunePins()
 		m.rebuildItems()
 		m.restoreCursor()
 		return m, m.captureSelected()
@@ -416,6 +417,30 @@ func (m *Model) reloadPins() {
 		return
 	}
 	m.pins = pins
+}
+
+func (m *Model) prunePins() {
+	visible := make(map[string]bool)
+	for i := range m.groups {
+		for j := range m.groups[i].Agents {
+			a := &m.groups[i].Agents[j]
+			visible[pinKey(a)] = true
+		}
+	}
+
+	pruned := m.pins[:0]
+	changed := false
+	for _, key := range m.pins {
+		if visible[key] {
+			pruned = append(pruned, key)
+		} else {
+			changed = true
+		}
+	}
+	m.pins = pruned
+	if changed {
+		m.persistPins()
+	}
 }
 
 // moveCursor moves the cursor by delta, skipping group headers and team members.

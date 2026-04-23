@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/jonco/agent-dashboard/internal/agent"
 )
@@ -59,5 +60,5 @@ func pinKey(a *agent.Agent) string {
 	if a == nil {
 		return ""
 	}
-	return string(a.AgentType) + "|" + a.Session + "|" + a.CWD + "|" + a.Name + "|" + a.DisplayName + "|" + a.TeamName + "|" + a.AgentRole
+	return string(a.AgentType) + "|" + a.PaneTarget + "|" + strconv.Itoa(a.PID)
 }
