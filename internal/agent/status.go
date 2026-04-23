@@ -15,6 +15,9 @@ var (
 	codexInterruptRe = regexp.MustCompile(`^[•·]\s*(.*?)\s*\(.*(?:esc|ctrl\+c)\s+to interrupt\)`)
 	codexStatusBarRe = regexp.MustCompile(`^\s*([\w.-]+)\s+\w+\s*·\s*(\d+)%\s*left`)
 	codexPromptRe    = regexp.MustCompile(`^›\s*(.*)$`)
+
+	// pi TUI patterns.
+	piSpinnerRe = regexp.MustCompile(`^[\x{2800}-\x{28FF}]\s+(.+)$`)
 )
 
 // ParseOutputStatus examines the last few lines of an agent's pane output
@@ -101,6 +104,30 @@ func ParseCodexOutputStatus(output string, titleStatus tmux.AgentStatus) (tmux.A
 	}
 	if sawStatusBar {
 		return tmux.StatusIdle, "Idle"
+	}
+
+	return fallbackStatus(titleStatus)
+}
+
+// ParsePiOutputStatus examines pi TUI output for a live spinner line like
+// "⠙ Working...". pi does not currently expose a reliable tmux title status, so
+// this parser only upgrades to a working status when it finds an explicit
+// spinner signal and otherwise falls back.
+func ParsePiOutputStatus(output string, titleStatus tmux.AgentStatus) (tmux.AgentStatus, string) {
+	lines := lastNonEmptyLines(output, 8)
+	if len(lines) == 0 {
+		return fallbackStatus(titleStatus)
+	}
+
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if m := piSpinnerRe.FindStringSubmatch(line); m != nil {
+			detail := strings.TrimSpace(m[1])
+			if detail == "" {
+				detail = "Working..."
+			}
+			return tmux.StatusWorking, detail
+		}
 	}
 
 	return fallbackStatus(titleStatus)

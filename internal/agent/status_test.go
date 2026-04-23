@@ -141,6 +141,50 @@ func TestParseOutputStatus(t *testing.T) {
 	}
 }
 
+func TestParsePiOutputStatus(t *testing.T) {
+	tests := []struct {
+		name        string
+		output      string
+		titleStatus tmux.AgentStatus
+		wantStatus  tmux.AgentStatus
+		wantDetail  string
+	}{
+		{
+			name:        "pi spinner line",
+			output:      "⠙ Working...\n\n────────────────────\n~/src/agent-dashboard (main)\n↑134k ↓15k R2.6M $1.208 (sub) 25.5%/272k (auto)                                gpt-5.4 • medium\n",
+			titleStatus: tmux.StatusUnknown,
+			wantStatus:  tmux.StatusWorking,
+			wantDetail:  "Working...",
+		},
+		{
+			name:        "pi spinner with custom detail",
+			output:      "⠴ Thinking about commits\n",
+			titleStatus: tmux.StatusUnknown,
+			wantStatus:  tmux.StatusWorking,
+			wantDetail:  "Thinking about commits",
+		},
+		{
+			name:        "pi footer only falls back",
+			output:      "────────────────────\n~/src/agent-dashboard (main)\n↑134k ↓15k R2.6M $1.208 (sub) 25.5%/272k (auto)                                gpt-5.4 • medium\n",
+			titleStatus: tmux.StatusUnknown,
+			wantStatus:  tmux.StatusUnknown,
+			wantDetail:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotStatus, gotDetail := ParsePiOutputStatus(tt.output, tt.titleStatus)
+			if gotStatus != tt.wantStatus {
+				t.Errorf("status = %q, want %q", gotStatus, tt.wantStatus)
+			}
+			if gotDetail != tt.wantDetail {
+				t.Errorf("detail = %q, want %q", gotDetail, tt.wantDetail)
+			}
+		})
+	}
+}
+
 func TestParseCodexOutputStatus(t *testing.T) {
 	tests := []struct {
 		name        string

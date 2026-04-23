@@ -217,7 +217,7 @@ func enrichAgents(groups []SessionGroup, statusLines int, procTable map[int]moni
 					}
 				}
 			case AgentTypePi:
-				a.Status, a.StatusDetail = fallbackStatus(a.Status)
+				a.Status, a.StatusDetail = ParsePiOutputStatus(output, a.Status)
 				if session := piSession.FindSession(a.CWD, piSessions); session != nil {
 					if session.Model != "" {
 						a.ModelProvider = session.Model
