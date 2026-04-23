@@ -73,6 +73,7 @@ bind-key C-d if-shell '[ "#{session_name}" = "dashboard" ]' 'switch-client -l' '
 | `k` / `↑` | Move up |
 | `Enter` | Jump to agent's tmux pane |
 | `p` | Pin/unpin selected agent |
+| `[` / `]` | Move selected pinned agent up/down |
 | `/` | Filter mode |
 | `Esc` | Clear filter |
 | `r` | Force refresh |

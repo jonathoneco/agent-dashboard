@@ -11,6 +11,8 @@ type keyMap struct {
 	Refresh  key.Binding
 	Spawn    key.Binding
 	Pin      key.Binding
+	PinUp    key.Binding
+	PinDown  key.Binding
 	Help     key.Binding
 	Quit     key.Binding
 	Jump     key.Binding
@@ -49,6 +51,14 @@ var keys = keyMap{
 	Pin: key.NewBinding(
 		key.WithKeys("p"),
 		key.WithHelp("p", "pin/unpin agent"),
+	),
+	PinUp: key.NewBinding(
+		key.WithKeys("["),
+		key.WithHelp("[", "move pin up"),
+	),
+	PinDown: key.NewBinding(
+		key.WithKeys("]"),
+		key.WithHelp("]", "move pin down"),
 	),
 	Help: key.NewBinding(
 		key.WithKeys("?"),

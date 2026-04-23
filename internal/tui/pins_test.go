@@ -53,8 +53,58 @@ func TestRebuildItemsPinnedOrder(t *testing.T) {
 	m.rebuildItems()
 
 	want := []string{"#Pinned", "gamma", "alpha", "#beta", "beta"}
+	got := itemLabels(m.items)
+	assertLabels(t, got, want)
+}
+
+func TestMoveSelectedPinReordersPinnedSection(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	a := agent.Agent{Session: "alpha", PaneTarget: "alpha:1.1", CWD: "/tmp/alpha", DisplayName: "alpha", AgentType: agent.AgentTypeClaude}
+	b := agent.Agent{Session: "beta", PaneTarget: "beta:1.1", CWD: "/tmp/beta", DisplayName: "beta", AgentType: agent.AgentTypeCodex}
+	c := agent.Agent{Session: "gamma", PaneTarget: "gamma:1.1", CWD: "/tmp/gamma", DisplayName: "gamma", AgentType: agent.AgentTypePi}
+
+	m := Model{
+		groups: []agent.SessionGroup{
+			{Session: "alpha", Agents: []agent.Agent{a}},
+			{Session: "beta", Agents: []agent.Agent{b}},
+			{Session: "gamma", Agents: []agent.Agent{c}},
+		},
+		pins: []string{pinKey(&a), pinKey(&b), pinKey(&c)},
+	}
+	m.rebuildItems()
+	m.cursor = 2 // beta in pinned section
+	m.saveCursorKey()
+
+	m.moveSelectedPin(-1)
+
+	if got, want := m.pins, []string{pinKey(&b), pinKey(&a), pinKey(&c)}; len(got) != len(want) {
+		t.Fatalf("pins len = %d, want %d", len(got), len(want))
+	} else {
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("pins[%d] = %q, want %q", i, got[i], want[i])
+			}
+		}
+	}
+
+	assertLabels(t, itemLabels(m.items), []string{"#Pinned", "beta", "alpha", "gamma"})
+
+	loaded, err := loadPins()
+	if err != nil {
+		t.Fatalf("loadPins() error = %v", err)
+	}
+	for i := range loaded {
+		if loaded[i] != m.pins[i] {
+			t.Fatalf("persisted pins[%d] = %q, want %q", i, loaded[i], m.pins[i])
+		}
+	}
+}
+
+func itemLabels(items []listItem) []string {
 	var got []string
-	for _, item := range m.items {
+	for _, item := range items {
 		switch {
 		case item.isHeader:
 			got = append(got, "#"+item.group)
@@ -62,7 +112,11 @@ func TestRebuildItemsPinnedOrder(t *testing.T) {
 			got = append(got, item.agent.DisplayName)
 		}
 	}
+	return got
+}
 
+func assertLabels(t *testing.T, got, want []string) {
+	t.Helper()
 	if len(got) != len(want) {
 		t.Fatalf("items len = %d, want %d (%v)", len(got), len(want), got)
 	}

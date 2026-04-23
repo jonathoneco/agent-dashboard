@@ -134,6 +134,12 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Pin):
 		m.toggleSelectedPin()
 		return m, m.captureSelected()
+	case key.Matches(msg, keys.PinUp):
+		m.moveSelectedPin(-1)
+		return m, m.captureSelected()
+	case key.Matches(msg, keys.PinDown):
+		m.moveSelectedPin(1)
+		return m, m.captureSelected()
 	case key.Matches(msg, keys.Jump):
 		return m.handleJump(msg)
 	case msg.Type == tea.KeyRunes && msg.Alt && len(msg.Runes) == 1 && msg.Runes[0] >= 'a' && msg.Runes[0] <= 'z':
@@ -358,20 +364,48 @@ func (m *Model) toggleSelectedPin() {
 	for i, pinned := range m.pins {
 		if pinned == key {
 			m.pins = append(m.pins[:i], m.pins[i+1:]...)
-			if err := savePins(m.pins); err != nil {
-				m.err = err
-			}
+			m.persistPins()
 			m.rebuildItems()
 			m.restoreCursor()
 			return
 		}
 	}
 	m.pins = append(m.pins, key)
+	m.persistPins()
+	m.rebuildItems()
+	m.restoreCursor()
+}
+
+func (m *Model) moveSelectedPin(delta int) {
+	a := m.selectedAgent()
+	if a == nil || delta == 0 {
+		return
+	}
+	key := pinKey(a)
+	idx := -1
+	for i, pinned := range m.pins {
+		if pinned == key {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return
+	}
+	newIdx := idx + delta
+	if newIdx < 0 || newIdx >= len(m.pins) {
+		return
+	}
+	m.pins[idx], m.pins[newIdx] = m.pins[newIdx], m.pins[idx]
+	m.persistPins()
+	m.rebuildItems()
+	m.restoreCursor()
+}
+
+func (m *Model) persistPins() {
 	if err := savePins(m.pins); err != nil {
 		m.err = err
 	}
-	m.rebuildItems()
-	m.restoreCursor()
 }
 
 // moveCursor moves the cursor by delta, skipping group headers and team members.

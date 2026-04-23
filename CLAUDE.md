@@ -60,6 +60,7 @@ Status from pane title: `✳` = idle, braille dots = active.
 | `k/↑` | Move up |
 | `Enter` | Jump to agent pane |
 | `p` | Pin/unpin selected agent |
+| `[` / `]` | Move selected pinned agent up/down |
 | `/` | Filter mode |
 | `Esc` | Clear filter |
 | `r` | Force refresh |
