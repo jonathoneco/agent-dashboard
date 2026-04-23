@@ -116,6 +116,9 @@ func (m Model) renderList(width int) string {
 
 		status := statusIcon(a.Status)
 		name := displayName(a)
+		if m.isPinned(a) {
+			name = "★ " + name
+		}
 		switch a.AgentType {
 		case agent.AgentTypeCodex:
 			name = "[cdx] " + name
@@ -176,7 +179,7 @@ func (m Model) renderList(width int) string {
 		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("3")).Render(
 			fmt.Sprintf(" %s (y/n)", m.confirmMsg)))
 	} else {
-		b.WriteString(helpStyle.Render(" j/k:nav  gg/G:top/bottom  1-0/M-a-z:jump  enter:switch  /:filter  e:expert  ?:help  q:quit"))
+		b.WriteString(helpStyle.Render(" j/k:nav  gg/G:top/bottom  1-0/M-a-z:jump  enter:switch  p:pin  /:filter  e:expert  ?:help  q:quit"))
 	}
 
 	return b.String()
@@ -203,6 +206,7 @@ func (m Model) renderHelp() string {
 		{"Actions", [][2]string{
 			{"/", "Enter filter mode"},
 			{"Esc", "Clear filter / close help"},
+			{"p", "Pin/unpin selected agent"},
 			{"e", "Spawn Codex expert teammate"},
 			{"r", "Force refresh"},
 			{"?", "Toggle this help"},
@@ -260,6 +264,9 @@ func (m Model) renderDetail() string {
 		statusStr += " — " + a.StatusDetail
 	}
 	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Status:"), statusStr))
+	if m.isPinned(a) {
+		b.WriteString(fmt.Sprintf("%s yes\n", detailLabelStyle.Render("Pinned:")))
+	}
 	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("CWD:"), a.CWD))
 	if a.TeamName != "" {
 		b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Team:"), a.TeamName))

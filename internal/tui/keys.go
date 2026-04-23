@@ -10,6 +10,7 @@ type keyMap struct {
 	Escape   key.Binding
 	Refresh  key.Binding
 	Spawn    key.Binding
+	Pin      key.Binding
 	Help     key.Binding
 	Quit     key.Binding
 	Jump     key.Binding
@@ -44,6 +45,10 @@ var keys = keyMap{
 	Spawn: key.NewBinding(
 		key.WithKeys("e"),
 		key.WithHelp("e", "spawn codex expert"),
+	),
+	Pin: key.NewBinding(
+		key.WithKeys("p"),
+		key.WithHelp("p", "pin/unpin agent"),
 	),
 	Help: key.NewBinding(
 		key.WithKeys("?"),

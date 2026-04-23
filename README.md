@@ -72,6 +72,7 @@ bind-key C-d if-shell '[ "#{session_name}" = "dashboard" ]' 'switch-client -l' '
 | `j` / `↓` | Move down |
 | `k` / `↑` | Move up |
 | `Enter` | Jump to agent's tmux pane |
+| `p` | Pin/unpin selected agent |
 | `/` | Filter mode |
 | `Esc` | Clear filter |
 | `r` | Force refresh |
@@ -80,6 +81,8 @@ bind-key C-d if-shell '[ "#{session_name}" = "dashboard" ]' 'switch-client -l' '
 ## How It Works
 
 The dashboard polls `tmux list-panes -a` every 2 seconds to discover agent processes. It identifies agents by matching `pane_current_command` against `claude`, `codex`, `pi`, or semver patterns (Claude team subprocesses). Agent status is parsed from tmux pane titles when available, and additional metadata is gathered from `/proc/<pid>/cmdline`, `~/.claude/teams/*/config.json`, `~/.claude/todos/*.json`, `~/.codex/sessions`, and `~/.pi/agent/sessions`.
+
+Pinned agents are stored in `~/.config/agent-dashboard/pins.json` and rendered in a dedicated `Pinned` section at the top in the order they were pinned.
 
 ## License
 

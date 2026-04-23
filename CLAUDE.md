@@ -59,6 +59,7 @@ Status from pane title: `✳` = idle, braille dots = active.
 | `j/↓` | Move down |
 | `k/↑` | Move up |
 | `Enter` | Jump to agent pane |
+| `p` | Pin/unpin selected agent |
 | `/` | Filter mode |
 | `Esc` | Clear filter |
 | `r` | Force refresh |
@@ -80,6 +81,7 @@ Status from pane title: `✳` = idle, braille dots = active.
 - **`viewport.Model` for detail panel** — capture-pane output needs scrolling.
 - **Shell out to tmux CLI** — `exec.Command("tmux", ...)` not a Go library. tmux CLI is stable, zero deps.
 - **Cursor stability across polls** — restore cursor by matching `PaneTarget` (stable identifier). If agent vanished, clamp to bounds.
+- **Pinned agents** — persisted in `~/.config/agent-dashboard/pins.json`, shown in pin order at the top so jump indices stay stable.
 - **Capture only selected agent** — not all agents. Fires on cursor move and each poll cycle.
 - **Polling debounce** — `collecting` flag prevents stacking polls if collection exceeds interval.
 

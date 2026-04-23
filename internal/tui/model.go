@@ -41,6 +41,7 @@ type Model struct {
 	detail        viewport.Model
 	capture       string
 	collecting    bool
+	pins          []string
 	scrollOffset  int // first visible row in agent list
 	confirmMsg    string
 	confirmAction func(m Model) (Model, tea.Cmd)
@@ -56,10 +57,13 @@ func New(cfg *config.Config) Model {
 
 	vp := viewport.New(0, 0)
 
+	pins, _ := loadPins()
+
 	return Model{
 		cfg:    cfg,
 		filter: ti,
 		detail: vp,
+		pins:   pins,
 	}
 }
 

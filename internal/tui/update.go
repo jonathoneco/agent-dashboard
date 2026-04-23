@@ -131,6 +131,9 @@ func (m Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, collectCmd(m.cfg.StatusLines)
 		}
 		return m, nil
+	case key.Matches(msg, keys.Pin):
+		m.toggleSelectedPin()
+		return m, m.captureSelected()
 	case key.Matches(msg, keys.Jump):
 		return m.handleJump(msg)
 	case msg.Type == tea.KeyRunes && msg.Alt && len(msg.Runes) == 1 && msg.Runes[0] >= 'a' && msg.Runes[0] <= 'z':
@@ -279,27 +282,96 @@ func (m *Model) rebuildItems() {
 		}
 	}
 
-	m.items = m.items[:0]
+	pinned := make(map[string]*agent.Agent)
 	for i := range filtered {
-		m.items = append(m.items, listItem{isHeader: true, group: filtered[i].Session})
 		for j := range filtered[i].Agents {
 			a := &filtered[i].Agents[j]
 			if memberSet[a.PaneTarget] {
-				continue // emitted after their lead
+				continue
 			}
-			m.items = append(m.items, listItem{agent: a})
-			// Emit team members right after the lead.
-			if a.IsTeamLead {
-				for k, mem := range a.TeamMembers {
-					m.items = append(m.items, listItem{
-						agent:        mem,
-						isTeamMember: true,
-						isLastMember: k == len(a.TeamMembers)-1,
-					})
-				}
+			if m.isPinned(a) {
+				pinned[pinKey(a)] = a
 			}
 		}
 	}
+
+	m.items = m.items[:0]
+	if len(pinned) > 0 {
+		m.items = append(m.items, listItem{isHeader: true, group: "Pinned"})
+		for _, key := range m.pins {
+			if a := pinned[key]; a != nil {
+				m.appendAgentItem(a)
+			}
+		}
+	}
+
+	for i := range filtered {
+		groupStart := len(m.items)
+		m.items = append(m.items, listItem{isHeader: true, group: filtered[i].Session})
+		for j := range filtered[i].Agents {
+			a := &filtered[i].Agents[j]
+			if memberSet[a.PaneTarget] || m.isPinned(a) {
+				continue // emitted after their lead or in pinned section
+			}
+			m.appendAgentItem(a)
+		}
+		if len(m.items) == groupStart+1 {
+			m.items = m.items[:groupStart] // remove empty header
+		}
+	}
+}
+
+func (m *Model) appendAgentItem(a *agent.Agent) {
+	m.items = appendPinnedWithMembers(m.items, a)
+}
+
+func appendPinnedWithMembers(items []listItem, a *agent.Agent) []listItem {
+	items = append(items, listItem{agent: a})
+	if a.IsTeamLead {
+		for k, mem := range a.TeamMembers {
+			items = append(items, listItem{
+				agent:        mem,
+				isTeamMember: true,
+				isLastMember: k == len(a.TeamMembers)-1,
+			})
+		}
+	}
+	return items
+}
+
+func (m Model) isPinned(a *agent.Agent) bool {
+	key := pinKey(a)
+	for _, pinned := range m.pins {
+		if pinned == key {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Model) toggleSelectedPin() {
+	a := m.selectedAgent()
+	if a == nil {
+		return
+	}
+	key := pinKey(a)
+	for i, pinned := range m.pins {
+		if pinned == key {
+			m.pins = append(m.pins[:i], m.pins[i+1:]...)
+			if err := savePins(m.pins); err != nil {
+				m.err = err
+			}
+			m.rebuildItems()
+			m.restoreCursor()
+			return
+		}
+	}
+	m.pins = append(m.pins, key)
+	if err := savePins(m.pins); err != nil {
+		m.err = err
+	}
+	m.rebuildItems()
+	m.restoreCursor()
 }
 
 // moveCursor moves the cursor by delta, skipping group headers and team members.
