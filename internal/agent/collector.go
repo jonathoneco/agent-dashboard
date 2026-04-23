@@ -222,16 +222,7 @@ func enrichAgents(groups []SessionGroup, statusLines int, procTable map[int]moni
 					if session.Model != "" {
 						a.ModelProvider = session.Model
 					}
-					if !session.LastUpdated.IsZero() {
-						recent := time.Since(session.LastUpdated) < 8*time.Second
-						if recent {
-							a.Status = tmux.StatusWorking
-							a.StatusDetail = "Active"
-						} else if a.Status == tmux.StatusUnknown || a.Status == tmux.StatusWorking || a.StatusDetail == "Working..." || a.StatusDetail == "Active" {
-							a.Status = tmux.StatusIdle
-							a.StatusDetail = "Idle"
-						}
-					}
+					a.Status, a.StatusDetail = ApplyPiSessionStatus(a.Status, a.StatusDetail, session.LastUpdated, time.Now())
 				}
 			default:
 				a.Status, a.StatusDetail = ParseOutputStatus(output, a.Status)

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"testing"
+	"time"
 
 	"github.com/jonco/agent-dashboard/internal/tmux"
 )
@@ -175,6 +176,55 @@ func TestParsePiOutputStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotStatus, gotDetail := ParsePiOutputStatus(tt.output, tt.titleStatus)
+			if gotStatus != tt.wantStatus {
+				t.Errorf("status = %q, want %q", gotStatus, tt.wantStatus)
+			}
+			if gotDetail != tt.wantDetail {
+				t.Errorf("detail = %q, want %q", gotDetail, tt.wantDetail)
+			}
+		})
+	}
+}
+
+func TestApplyPiSessionStatus(t *testing.T) {
+	now := time.Date(2026, 4, 23, 13, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name       string
+		status     tmux.AgentStatus
+		detail     string
+		lastUpdate time.Time
+		wantStatus tmux.AgentStatus
+		wantDetail string
+	}{
+		{
+			name:       "recent session upgrades unknown to active",
+			status:     tmux.StatusUnknown,
+			detail:     "",
+			lastUpdate: now.Add(-2 * time.Second),
+			wantStatus: tmux.StatusWorking,
+			wantDetail: "Active",
+		},
+		{
+			name:       "stale session marks idle when no explicit working signal",
+			status:     tmux.StatusUnknown,
+			detail:     "",
+			lastUpdate: now.Add(-20 * time.Second),
+			wantStatus: tmux.StatusIdle,
+			wantDetail: "Idle",
+		},
+		{
+			name:       "explicit spinner is preserved even with stale session",
+			status:     tmux.StatusWorking,
+			detail:     "Thinking about commits",
+			lastUpdate: now.Add(-20 * time.Second),
+			wantStatus: tmux.StatusWorking,
+			wantDetail: "Thinking about commits",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotStatus, gotDetail := ApplyPiSessionStatus(tt.status, tt.detail, tt.lastUpdate, now)
 			if gotStatus != tt.wantStatus {
 				t.Errorf("status = %q, want %q", gotStatus, tt.wantStatus)
 			}

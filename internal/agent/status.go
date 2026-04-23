@@ -3,6 +3,7 @@ package agent
 import (
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/jonco/agent-dashboard/internal/tmux"
 )
@@ -131,6 +132,26 @@ func ParsePiOutputStatus(output string, titleStatus tmux.AgentStatus) (tmux.Agen
 	}
 
 	return fallbackStatus(titleStatus)
+}
+
+// ApplyPiSessionStatus uses session write recency as a fallback for pi panes.
+// It must not overwrite an explicit output-derived working signal such as a
+// live spinner line captured from the pane.
+func ApplyPiSessionStatus(status tmux.AgentStatus, detail string, lastUpdated time.Time, now time.Time) (tmux.AgentStatus, string) {
+	if lastUpdated.IsZero() {
+		return status, detail
+	}
+	recent := now.Sub(lastUpdated) < 8*time.Second
+	if recent {
+		if status == tmux.StatusUnknown || status == tmux.StatusIdle {
+			return tmux.StatusWorking, "Active"
+		}
+		return status, detail
+	}
+	if status == tmux.StatusUnknown || status == tmux.StatusIdle {
+		return tmux.StatusIdle, "Idle"
+	}
+	return status, detail
 }
 
 func fallbackStatus(titleStatus tmux.AgentStatus) (tmux.AgentStatus, string) {
