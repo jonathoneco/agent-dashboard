@@ -90,7 +90,7 @@ Status from pane title: `✳` = idle, braille dots = active.
 
 | After editing | Run |
 |---|---|
-| Go files | `go build ./...` and `go vet ./...` |
+| Go files | `go build ./...`, `go build -o agent-dashboard ./cmd/dashboard`, and `go vet ./...` |
 | Go tests | `go test ./...` |
 | Any change | `gofmt` (auto via hook) |
 
@@ -108,6 +108,8 @@ Or use:
 make build    # rebuilds ./agent-dashboard
 make install  # rebuilds and refreshes ~/.local/bin/agent-dashboard
 ```
+
+Note: `./agent-dashboard` is a local build artifact and is intentionally not tracked in git. Rebuild it locally after dashboard changes.
 
 ## tmux Integration
 

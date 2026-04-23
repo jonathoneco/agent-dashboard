@@ -49,6 +49,8 @@ make build    # rebuilds ./agent-dashboard
 make install  # rebuilds and refreshes ~/.local/bin/agent-dashboard
 ```
 
+`./agent-dashboard` is a local build artifact and should be rebuilt locally after source changes.
+
 ## Usage
 
 Run in a dedicated tmux session:
