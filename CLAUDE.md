@@ -99,6 +99,13 @@ ln -sf ~/src/agent-dashboard/agent-dashboard ~/.local/bin/agent-dashboard
 tmux new-session -d -s dashboard 'agent-dashboard'
 ```
 
+Or use:
+
+```bash
+make build    # rebuilds ./agent-dashboard
+make install  # rebuilds and refreshes ~/.local/bin/agent-dashboard
+```
+
 ## tmux Integration
 
 Toggle keybind in dotfiles (`config/tmux/config/keybindings.conf`):

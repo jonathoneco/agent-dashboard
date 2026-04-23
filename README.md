@@ -42,6 +42,13 @@ Optionally symlink into your PATH:
 ln -sf "$(pwd)/agent-dashboard" ~/.local/bin/agent-dashboard
 ```
 
+Or use the included Makefile:
+
+```bash
+make build    # rebuilds ./agent-dashboard
+make install  # rebuilds and refreshes ~/.local/bin/agent-dashboard
+```
+
 ## Usage
 
 Run in a dedicated tmux session:
