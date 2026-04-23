@@ -116,8 +116,11 @@ func (m Model) renderList(width int) string {
 
 		status := statusIcon(a.Status)
 		name := displayName(a)
-		if a.AgentType == agent.AgentTypeCodex {
+		switch a.AgentType {
+		case agent.AgentTypeCodex:
 			name = "[cdx] " + name
+		case agent.AgentTypePi:
+			name = "[pi] " + name
 		}
 		if a.IsTeamLead && len(a.TeamMembers) > 0 {
 			name += fmt.Sprintf(" (%d agents)", len(a.TeamMembers))

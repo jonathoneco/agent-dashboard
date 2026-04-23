@@ -13,6 +13,7 @@ import (
 
 	"github.com/jonco/agent-dashboard/internal/codex"
 	"github.com/jonco/agent-dashboard/internal/monitor"
+	piSession "github.com/jonco/agent-dashboard/internal/pi"
 	"github.com/jonco/agent-dashboard/internal/tmux"
 )
 
@@ -23,6 +24,7 @@ var semverRe = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 var agentBinaries = map[string]bool{
 	"claude": true,
 	"codex":  true,
+	"pi":     true,
 }
 
 // wrapperCommands are interpreters that may host an agent binary (e.g. node
@@ -99,6 +101,8 @@ func Collect(statusLines int) ([]SessionGroup, error) {
 			agentType = AgentTypeCodex
 		case "claude":
 			agentType = AgentTypeClaude
+		case "pi":
+			agentType = AgentTypePi
 		default:
 			if semverRe.MatchString(cmd) {
 				agentType = AgentTypeClaude
@@ -153,13 +157,18 @@ func Collect(statusLines int) ([]SessionGroup, error) {
 		slog.Debug("loading codex sessions", "error", codexErr)
 	}
 
+	piSessions, piErr := piSession.LoadSessionsCached()
+	if piErr != nil {
+		slog.Debug("loading pi sessions", "error", piErr)
+	}
+
 	// Fetch process table once for resource monitoring.
 	procTable, procErr := monitor.GetProcessTable()
 	if procErr != nil {
 		slog.Debug("process table unavailable", "error", procErr)
 	}
 
-	enrichAgents(groups, statusLines, procTable, codexSessions)
+	enrichAgents(groups, statusLines, procTable, codexSessions, piSessions)
 	LinkTeamLeads(groups)
 
 	return groups, nil
@@ -167,7 +176,7 @@ func Collect(statusLines int) ([]SessionGroup, error) {
 
 // enrichAgents captures pane output and computes display name, richer status,
 // and resource usage for each agent.
-func enrichAgents(groups []SessionGroup, statusLines int, procTable map[int]monitor.ProcessInfo, codexSessions map[string]*codex.SessionMeta) {
+func enrichAgents(groups []SessionGroup, statusLines int, procTable map[int]monitor.ProcessInfo, codexSessions map[string]*codex.SessionMeta, piSessions map[string]*piSession.SessionMeta) {
 	for i := range groups {
 		for j := range groups[i].Agents {
 			a := &groups[i].Agents[j]
@@ -178,7 +187,8 @@ func enrichAgents(groups []SessionGroup, statusLines int, procTable map[int]moni
 				slog.Debug("capture for status enrichment", "target", a.PaneTarget, "error", err)
 				continue
 			}
-			if a.AgentType == AgentTypeCodex {
+			switch a.AgentType {
+			case AgentTypeCodex:
 				a.Status, a.StatusDetail = ParseCodexOutputStatus(output, a.Status)
 				if session := codex.FindSession(a.CWD, codexSessions); session != nil {
 					a.ModelProvider = session.ModelProvider
@@ -206,7 +216,24 @@ func enrichAgents(groups []SessionGroup, statusLines int, procTable map[int]moni
 						}
 					}
 				}
-			} else {
+			case AgentTypePi:
+				a.Status, a.StatusDetail = fallbackStatus(a.Status)
+				if session := piSession.FindSession(a.CWD, piSessions); session != nil {
+					if session.Model != "" {
+						a.ModelProvider = session.Model
+					}
+					if !session.LastUpdated.IsZero() {
+						recent := time.Since(session.LastUpdated) < 8*time.Second
+						if recent {
+							a.Status = tmux.StatusWorking
+							a.StatusDetail = "Active"
+						} else if a.Status == tmux.StatusUnknown || a.Status == tmux.StatusWorking || a.StatusDetail == "Working..." || a.StatusDetail == "Active" {
+							a.Status = tmux.StatusIdle
+							a.StatusDetail = "Idle"
+						}
+					}
+				}
+			default:
 				a.Status, a.StatusDetail = ParseOutputStatus(output, a.Status)
 			}
 

@@ -102,6 +102,7 @@ func TestIsAgentCommand(t *testing.T) {
 	}{
 		{"claude", true},
 		{"codex", true},
+		{"pi", true},
 		{"1.2.3", true},
 		{"10.20.30", true},
 		{"bash", false},
@@ -139,6 +140,11 @@ func TestDetectAgentInCmdline(t *testing.T) {
 			name: "node running claude",
 			args: []byte("/usr/bin/node\x00/opt/claude/bin/claude\x00--team-name\x00my-team\x00"),
 			want: "claude",
+		},
+		{
+			name: "node running pi",
+			args: []byte("/usr/bin/node\x00/home/user/.npm-global/bin/pi\x00"),
+			want: "pi",
 		},
 		{
 			name: "node running something else",

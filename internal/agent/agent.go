@@ -7,16 +7,17 @@ import (
 	"github.com/jonco/agent-dashboard/internal/tmux"
 )
 
-// AgentType distinguishes the agent runtime (Claude vs Codex).
+// AgentType distinguishes the agent runtime (Claude vs Codex vs pi).
 type AgentType string
 
 const (
 	AgentTypeClaude  AgentType = "claude"
 	AgentTypeCodex   AgentType = "codex"
+	AgentTypePi      AgentType = "pi"
 	AgentTypeUnknown AgentType = ""
 )
 
-// Agent represents a detected Claude/Codex agent running in a tmux pane.
+// Agent represents a detected Claude/Codex/pi agent running in a tmux pane.
 type Agent struct {
 	Name            string           // from --agent-name cmdline arg, or pane command
 	DisplayName     string           // human-friendly name for display

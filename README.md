@@ -1,6 +1,6 @@
 # Agent Dashboard
 
-A live-updating TUI for monitoring Claude Code and Codex agent instances across tmux sessions. Built with Go and [Bubbletea](https://github.com/charmbracelet/bubbletea).
+A live-updating TUI for monitoring Claude Code, Codex, and pi agent instances across tmux sessions. Built with Go and [Bubbletea](https://github.com/charmbracelet/bubbletea).
 
 ![Go](https://img.shields.io/badge/Go-1.25-blue)
 
@@ -8,13 +8,13 @@ A live-updating TUI for monitoring Claude Code and Codex agent instances across 
 
 ## Features
 
-- Discovers Claude Code and Codex agents running in tmux panes
+- Discovers Claude Code, Codex, and pi agents running in tmux panes
 - Groups agents by project (tmux session name)
 - Shows agent status (idle/active), uptime, and working directory
 - Detail panel with todos, team info, and captured pane output
 - Filter agents by name, session, or path
 - Jump directly to an agent's tmux pane
-- Detects team subprocesses and Codex node wrapper processes
+- Detects team subprocesses plus Codex/pi wrapper processes
 
 ## Prerequisites
 
@@ -72,7 +72,7 @@ bind-key C-d if-shell '[ "#{session_name}" = "dashboard" ]' 'switch-client -l' '
 
 ## How It Works
 
-The dashboard polls `tmux list-panes -a` every 2 seconds to discover agent processes. It identifies agents by matching `pane_current_command` against `claude`, `codex`, or semver patterns (team subprocesses). Agent status is parsed from tmux pane titles, and additional metadata is gathered from `/proc/<pid>/cmdline`, `~/.claude/teams/*/config.json`, and `~/.claude/todos/*.json`.
+The dashboard polls `tmux list-panes -a` every 2 seconds to discover agent processes. It identifies agents by matching `pane_current_command` against `claude`, `codex`, `pi`, or semver patterns (Claude team subprocesses). Agent status is parsed from tmux pane titles when available, and additional metadata is gathered from `/proc/<pid>/cmdline`, `~/.claude/teams/*/config.json`, `~/.claude/todos/*.json`, `~/.codex/sessions`, and `~/.pi/agent/sessions`.
 
 ## License
 

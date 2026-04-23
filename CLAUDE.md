@@ -1,6 +1,6 @@
 # Agent Dashboard
 
-Persistent live-updating TUI for monitoring Claude Code and Codex agent instances across tmux sessions. Built with Go + Bubbletea.
+Persistent live-updating TUI for monitoring Claude Code, Codex, and pi agent instances across tmux sessions. Built with Go + Bubbletea.
 
 ## Architecture
 
@@ -42,11 +42,13 @@ internal/
 | `/proc/<pid>/cmdline` | `--team-name`, `--agent-name`, `--parent-session-id` |
 | `~/.claude/teams/*/config.json` | Team name, member roles, model |
 | `~/.claude/todos/*.json` | Task content, status, activeForm |
+| `~/.codex/sessions/.../rollout-*.jsonl` | Codex model/provider/session metadata |
+| `~/.pi/agent/sessions/**/*.jsonl` | pi cwd + latest selected model |
 | `tmux capture-pane` | Last 20 lines of selected agent output |
 
 ## Agent Detection
 
-Filter `pane_current_command` matching `claude`, `codex`, or semver pattern `X.Y.Z` (team subprocesses).
+Filter `pane_current_command` matching `claude`, `codex`, `pi`, or semver pattern `X.Y.Z` (Claude team subprocesses).
 
 Status from pane title: `✳` = idle, braille dots = active.
 
