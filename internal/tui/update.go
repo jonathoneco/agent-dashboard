@@ -34,6 +34,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.err = nil
+		m.reloadPins()
 		m.groups = msg.groups
 		m.rebuildItems()
 		m.restoreCursor()
@@ -406,6 +407,15 @@ func (m *Model) persistPins() {
 	if err := savePins(m.pins); err != nil {
 		m.err = err
 	}
+}
+
+func (m *Model) reloadPins() {
+	pins, err := loadPins()
+	if err != nil {
+		m.err = err
+		return
+	}
+	m.pins = pins
 }
 
 // moveCursor moves the cursor by delta, skipping group headers and team members.

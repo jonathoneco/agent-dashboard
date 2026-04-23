@@ -57,6 +57,36 @@ func TestRebuildItemsPinnedOrder(t *testing.T) {
 	assertLabels(t, got, want)
 }
 
+func TestReloadPinsUpdatesLongRunningModel(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	a := agent.Agent{Session: "alpha", PaneTarget: "alpha:1.1", CWD: "/tmp/alpha", DisplayName: "alpha", AgentType: agent.AgentTypeClaude}
+	b := agent.Agent{Session: "beta", PaneTarget: "beta:1.1", CWD: "/tmp/beta", DisplayName: "beta", AgentType: agent.AgentTypeCodex}
+
+	if err := savePins([]string{pinKey(&a)}); err != nil {
+		t.Fatalf("savePins(initial) error = %v", err)
+	}
+
+	m := Model{
+		groups: []agent.SessionGroup{
+			{Session: "alpha", Agents: []agent.Agent{a}},
+			{Session: "beta", Agents: []agent.Agent{b}},
+		},
+		pins: []string{pinKey(&a)},
+	}
+	m.rebuildItems()
+	assertLabels(t, itemLabels(m.items), []string{"#Pinned", "alpha", "#beta", "beta"})
+
+	if err := savePins([]string{pinKey(&b), pinKey(&a)}); err != nil {
+		t.Fatalf("savePins(updated) error = %v", err)
+	}
+
+	m.reloadPins()
+	m.rebuildItems()
+	assertLabels(t, itemLabels(m.items), []string{"#Pinned", "beta", "alpha"})
+}
+
 func TestMoveSelectedPinReordersPinnedSection(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
