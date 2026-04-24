@@ -43,8 +43,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case captureMsg:
 		if msg.err == nil {
-			m.capture = msg.output
-			m.detail.SetContent(m.renderDetail())
+			if a := m.selectedAgent(); a != nil && a.PaneTarget == msg.target {
+				m.capture = msg.output
+				m.detail.SetContent(m.renderDetail())
+			}
 		}
 		return m, nil
 

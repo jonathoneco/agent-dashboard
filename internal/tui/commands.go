@@ -15,6 +15,7 @@ type agentsMsg struct {
 }
 
 type captureMsg struct {
+	target string
 	output string
 	err    error
 }
@@ -35,6 +36,6 @@ func collectCmd(statusLines int) tea.Cmd {
 func captureCmd(target string, lines int) tea.Cmd {
 	return func() tea.Msg {
 		output, err := agent.CaptureOutput(target, lines)
-		return captureMsg{output: output, err: err}
+		return captureMsg{target: target, output: output, err: err}
 	}
 }
