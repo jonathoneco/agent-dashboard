@@ -450,6 +450,17 @@ func (m *Model) moveCursor(delta int) {
 	if len(m.items) == 0 {
 		return
 	}
+	if m.cursor < 0 {
+		if delta > 0 {
+			m.cursor = 0
+		} else {
+			m.cursor = len(m.items) - 1
+		}
+		m.skipToNextAgent(delta)
+		m.saveCursorKey()
+		m.adjustScroll()
+		return
+	}
 	start := m.cursor
 	m.cursor += delta
 	m.clampCursor()
@@ -481,6 +492,9 @@ func (m Model) listHeight() int {
 
 // adjustScroll ensures cursor is visible within the scroll viewport.
 func (m *Model) adjustScroll() {
+	if m.cursor < 0 {
+		return
+	}
 	visible := m.listHeight()
 	if m.cursor < m.scrollOffset {
 		m.scrollOffset = m.cursor
@@ -521,9 +535,7 @@ func (m *Model) saveCursorKey() {
 // restoreCursor tries to find the previously selected agent by PaneTarget.
 func (m *Model) restoreCursor() {
 	if m.cursorKey == "" {
-		m.skipToNextAgent(1)
-		m.saveCursorKey()
-		return
+		return // no selection yet — wait for user navigation
 	}
 	for i, item := range m.items {
 		if !item.isHeader && !item.isTeamMember && item.agent != nil && item.agent.PaneTarget == m.cursorKey {

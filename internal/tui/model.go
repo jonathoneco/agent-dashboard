@@ -61,6 +61,7 @@ func New(cfg *config.Config) Model {
 
 	return Model{
 		cfg:    cfg,
+		cursor: -1,
 		filter: ti,
 		detail: vp,
 		pins:   pins,
