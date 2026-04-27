@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/jonco/agent-dashboard/internal/agent"
 )
@@ -61,4 +62,32 @@ func pinKey(a *agent.Agent) string {
 		return ""
 	}
 	return string(a.AgentType) + "|" + a.PaneTarget + "|" + strconv.Itoa(a.PID)
+}
+
+func (m Model) autoPinProjectSet() map[string]bool {
+	set := make(map[string]bool, len(m.cfg.AutoPinProjects))
+	for _, project := range m.cfg.AutoPinProjects {
+		project = strings.TrimSpace(strings.ToLower(project))
+		if project != "" {
+			set[project] = true
+		}
+	}
+	return set
+}
+
+func (m Model) isAutoPinned(a *agent.Agent) bool {
+	if a == nil || m.cfg == nil {
+		return false
+	}
+	return m.autoPinProjectSet()[strings.ToLower(a.Session)]
+}
+
+func (m Model) isManuallyPinned(a *agent.Agent) bool {
+	key := pinKey(a)
+	for _, pinned := range m.pins {
+		if pinned == key {
+			return true
+		}
+	}
+	return false
 }

@@ -59,6 +59,18 @@ Run in a dedicated tmux session:
 tmux new-session -d -s dashboard 'agent-dashboard'
 ```
 
+### Config
+
+Optional XDG config file:
+
+```yaml
+# ~/.config/agent-dashboard/config.yaml
+auto_pin_projects:
+  - personal-agent
+```
+
+Projects in `auto_pin_projects` are pinned automatically by tmux session/project name and always stay in the top `Pinned` section.
+
 ### tmux keybinding
 
 Add a toggle keybinding to your tmux config to quickly switch to/from the dashboard:
@@ -85,7 +97,7 @@ bind-key C-d if-shell '[ "#{session_name}" = "dashboard" ]' 'switch-client -l' '
 
 The dashboard polls `tmux list-panes -a` every 2 seconds to discover agent processes. It identifies agents by matching `pane_current_command` against `claude`, `codex`, `pi`, or semver patterns (Claude team subprocesses). Agent status is parsed from tmux pane titles when available, and additional metadata is gathered from `/proc/<pid>/cmdline`, `~/.claude/teams/*/config.json`, `~/.claude/todos/*.json`, `~/.codex/sessions`, and `~/.pi/agent/sessions`.
 
-Pinned agents are stored in `~/.config/agent-dashboard/pins.json` and rendered in a dedicated `Pinned` section at the top in the order they were pinned.
+Pinned agents are stored in `~/.config/agent-dashboard/pins.json` and rendered in a dedicated `Pinned` section at the top in the order they were pinned. Projects listed in `~/.config/agent-dashboard/config.yaml` under `auto_pin_projects` are also pinned automatically.
 
 ## License
 

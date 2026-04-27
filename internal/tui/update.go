@@ -293,14 +293,22 @@ func (m *Model) rebuildItems() {
 	}
 
 	pinned := make(map[string]*agent.Agent)
+	autoPinnedOrder := make([]string, 0)
+	seenPinned := make(map[string]bool)
 	for i := range filtered {
 		for j := range filtered[i].Agents {
 			a := &filtered[i].Agents[j]
 			if memberSet[a.PaneTarget] {
 				continue
 			}
-			if m.isPinned(a) {
-				pinned[pinKey(a)] = a
+			if !m.isPinned(a) {
+				continue
+			}
+			key := pinKey(a)
+			pinned[key] = a
+			if m.isAutoPinned(a) && !seenPinned[key] {
+				autoPinnedOrder = append(autoPinnedOrder, key)
+				seenPinned[key] = true
 			}
 		}
 	}
@@ -308,6 +316,12 @@ func (m *Model) rebuildItems() {
 	m.items = m.items[:0]
 	if len(pinned) > 0 {
 		m.items = append(m.items, listItem{isHeader: true, group: "Pinned"})
+		for _, key := range autoPinnedOrder {
+			if a := pinned[key]; a != nil {
+				m.appendAgentItem(a)
+				delete(pinned, key)
+			}
+		}
 		for _, key := range m.pins {
 			if a := pinned[key]; a != nil {
 				m.appendAgentItem(a)
@@ -350,13 +364,7 @@ func appendPinnedWithMembers(items []listItem, a *agent.Agent) []listItem {
 }
 
 func (m Model) isPinned(a *agent.Agent) bool {
-	key := pinKey(a)
-	for _, pinned := range m.pins {
-		if pinned == key {
-			return true
-		}
-	}
-	return false
+	return m.isAutoPinned(a) || m.isManuallyPinned(a)
 }
 
 func (m *Model) toggleSelectedPin() {
@@ -374,6 +382,10 @@ func (m *Model) toggleSelectedPin() {
 			return
 		}
 	}
+	if m.isAutoPinned(a) {
+		m.err = nil
+		return
+	}
 	m.pins = append(m.pins, key)
 	m.persistPins()
 	m.rebuildItems()
@@ -383,6 +395,9 @@ func (m *Model) toggleSelectedPin() {
 func (m *Model) moveSelectedPin(delta int) {
 	a := m.selectedAgent()
 	if a == nil || delta == 0 {
+		return
+	}
+	if m.isAutoPinned(a) && !m.isManuallyPinned(a) {
 		return
 	}
 	key := pinKey(a)

@@ -82,7 +82,7 @@ Status from pane title: `✳` = idle, braille dots = active.
 - **`viewport.Model` for detail panel** — capture-pane output needs scrolling.
 - **Shell out to tmux CLI** — `exec.Command("tmux", ...)` not a Go library. tmux CLI is stable, zero deps.
 - **Cursor stability across polls** — restore cursor by matching `PaneTarget` (stable identifier). If agent vanished, clamp to bounds.
-- **Pinned agents** — persisted in `~/.config/agent-dashboard/pins.json`, shown in pin order at the top so jump indices stay stable.
+- **Pinned agents** — manual pins persist in `~/.config/agent-dashboard/pins.json`; projects listed in `~/.config/agent-dashboard/config.yaml` under `auto_pin_projects` are also pinned automatically.
 - **Capture only selected agent** — not all agents. Fires on cursor move and each poll cycle.
 - **Polling debounce** — `collecting` flag prevents stacking polls if collection exceeds interval.
 

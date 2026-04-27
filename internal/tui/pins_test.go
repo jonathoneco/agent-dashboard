@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jonco/agent-dashboard/internal/agent"
+	"github.com/jonco/agent-dashboard/internal/config"
 )
 
 func TestSaveAndLoadPins(t *testing.T) {
@@ -63,6 +64,22 @@ func TestRebuildItemsPinnedOrder(t *testing.T) {
 	assertLabels(t, itemLabels(m.items), []string{"#Pinned", "gamma", "alpha", "#beta", "beta"})
 }
 
+func TestAutoPinnedProjectsAppearInPinnedSection(t *testing.T) {
+	a := agent.Agent{Session: "personal-agent", PaneTarget: "personal-agent:1.1", PID: 101, CWD: "/tmp/personal-agent", DisplayName: "alpha", AgentType: agent.AgentTypeClaude}
+	b := agent.Agent{Session: "other", PaneTarget: "other:1.1", PID: 102, CWD: "/tmp/other", DisplayName: "beta", AgentType: agent.AgentTypeCodex}
+
+	m := Model{
+		cfg: &config.Config{AutoPinProjects: []string{"personal-agent"}},
+		groups: []agent.SessionGroup{
+			{Session: "personal-agent", Agents: []agent.Agent{a}},
+			{Session: "other", Agents: []agent.Agent{b}},
+		},
+	}
+
+	m.rebuildItems()
+	assertLabels(t, itemLabels(m.items), []string{"#Pinned", "alpha", "#other", "beta"})
+}
+
 func TestReloadPinsUpdatesLongRunningModel(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -91,6 +108,21 @@ func TestReloadPinsUpdatesLongRunningModel(t *testing.T) {
 	m.reloadPins()
 	m.rebuildItems()
 	assertLabels(t, itemLabels(m.items), []string{"#Pinned", "beta", "alpha"})
+}
+
+func TestManualPinCannotOverrideAutoPinnedProject(t *testing.T) {
+	a := agent.Agent{Session: "personal-agent", PaneTarget: "personal-agent:1.1", PID: 101, CWD: "/tmp/personal-agent", DisplayName: "alpha", AgentType: agent.AgentTypeClaude}
+
+	m := Model{
+		cfg:    &config.Config{AutoPinProjects: []string{"personal-agent"}},
+		groups: []agent.SessionGroup{{Session: "personal-agent", Agents: []agent.Agent{a}}},
+	}
+	m.rebuildItems()
+	m.cursor = 1
+	m.toggleSelectedPin()
+	if len(m.pins) != 0 {
+		t.Fatalf("auto-pinned project should not create manual pins, got %v", m.pins)
+	}
 }
 
 func TestMoveSelectedPinReordersPinnedSection(t *testing.T) {

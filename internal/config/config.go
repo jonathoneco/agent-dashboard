@@ -10,10 +10,11 @@ import (
 
 // Config holds user-configurable settings for the dashboard.
 type Config struct {
-	PollInterval time.Duration `yaml:"poll_interval"`
-	CaptureLines int           `yaml:"capture_lines"`
-	StatusLines  int           `yaml:"status_lines"`
-	LogFile      string        `yaml:"log_file"`
+	PollInterval    time.Duration `yaml:"poll_interval"`
+	CaptureLines    int           `yaml:"capture_lines"`
+	StatusLines     int           `yaml:"status_lines"`
+	LogFile         string        `yaml:"log_file"`
+	AutoPinProjects []string      `yaml:"auto_pin_projects"`
 }
 
 // defaults returns the default configuration matching previous hardcoded values.
